@@ -1,7 +1,6 @@
 import useSWR from 'swr'
 import axios from 'axios'
 import Link from 'next/link'
-import { toUnicode } from 'punycode'
 import { useState } from 'react'
 
 export async function getStaticProps(context) {
