@@ -1,0 +1,162 @@
+import axios from 'axios'
+import { useState } from 'react'
+import Link from 'next/link'
+import { useSession } from 'next-auth/react'
+
+export async function getStaticPaths() {
+  const res = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/tournaments`)
+  const tournaments = res.data
+
+  const paths = tournaments.map((tournament) => ({
+    params: { id: tournament.id },
+  }))
+
+  return { paths, fallback: false }
+}
+
+export async function getStaticProps({ params }) {
+  try {
+    const tournament = await axios.get(
+      `${process.env.NEXT_PUBLIC_DB_HOST}/tournaments/${params.id}`
+    )
+
+    const invites = await axios.get(
+      `${process.env.NEXT_PUBLIC_DB_HOST}/invites?tournament=${params.id}`
+    )
+
+    const teams = await axios.get(
+      `${process.env.NEXT_PUBLIC_DB_HOST}/teams?tournament=${params.id}`
+    )
+
+    return {
+      props: {
+        tournament: tournament.data,
+        invitations: invites.data,
+        teams: teams.data,
+      },
+    }
+  } catch (error) {
+    console.log(error)
+    return {
+      props: {
+        tournament: null,
+        invitations: null,
+        teams: null,
+      },
+    }
+  }
+}
+
+export default function Tournaments({ tournament, invitations, teams }) {
+  if (!tournament) {
+    return <p>Inget här</p>
+  }
+  console.log(teams)
+  const [invites, setInvites] = useState(invitations)
+  const [teams, setTeams] = useState(teams)
+  const { data: session, status } = useSession()
+
+  async function handleCreateInvite(unique) {
+    setInvites([
+      ...invites,
+      { id: 'new', code: '...', unique: !tournament.open },
+    ])
+    try {
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_DB_HOST}/invites`,
+        {
+          tournament: tournament.id,
+          unique: tournament.open,
+          expiration_date: new Date(),
+          name: tournament.name,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${session.user.accessToken}`,
+          },
+        }
+      )
+      setInvites([...invites, { id: res.data.id, code: res.data.code, unique }])
+    } catch (error) {
+      console.log(error)
+      setInvites(invites.filter((invite) => invite.id !== 'new'))
+    }
+  }
+
+  async function handleDeleteInvite(id: string) {
+    const res = await axios.delete(
+      `${process.env.NEXT_PUBLIC_DB_HOST}/invites/${id}`
+    )
+    setInvites(invites.filter((invite) => invite.id !== id))
+  }
+
+  async function handleClick(teamId: string, change: boolean): Promise<void> {
+    const team = await axios.patch(
+      `${process.env.NEXT_PUBLIC_DB_HOST}/team/${teamId}`,
+      {
+        accepted: change,
+      }
+    )
+    console.log(team)
+    setTeams(teams.map(team => {
+      team.id === changedTeam.id ? team : team
+    }))
+  }
+
+  return (
+    <section>
+      <>
+        <h1>{tournament.name}</h1>
+        <div>
+          <Link href={`${tournament.id}/edit`}>Ändra</Link>
+        </div>
+        <h2>{tournament.open ? 'Öppen tävling' : 'Endast inbjudan'}</h2>
+        <button onClick={() => handleCreateInvite(true)}>Skapa inbjudan</button>
+        {invites.length ? (
+          <ul>
+            {invites.map((invitation) => (
+              <li key={invitation.id}>
+                <Link href={`/invite/${invitation.code}`}>
+                  {invitation.code}
+                </Link>{' '}
+                - <b>{invitation.unique ? 'Inte använd' : 'Öppen inbjudan'}</b>
+                {' - '}
+                {session && (
+                  <button onClick={() => handleDeleteInvite(invitation.id)}>
+                    Ta bort
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>...</p>
+        )}
+        {teams.length ? (
+          <ul>
+            {' '}
+            {teams.map((team) => (
+              <li key={team.id}>
+                <Link href={`/team/${team.team_code}`}>
+                  {team.name} {team.accepted ? 'Antagen' : 'Nekad'}
+                </Link>
+                {team.accepted ? (
+                  <button onClick={() => handleClick(team.id, false)}>
+                    Neka
+                  </button>
+                ) : (
+                  <button onClick={() => handleClick(team.id, true)}>
+                    Anta
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>Inga anmälda lag</p>
+        )}
+        <section></section>
+      </>
+    </section>
+  )
+}
