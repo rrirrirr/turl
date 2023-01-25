@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { unstable_getServerSession } from 'next-auth'
 import { authOptions } from '../api/auth/[...nextauth]'
+import { GetServerSidePropsContext } from 'next'
+import { User } from '../../types/user'
 // export async function getStaticPaths() {
 //   const res = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/invitations`)
 //   const invites = res.data
@@ -23,8 +25,15 @@ import { authOptions } from '../api/auth/[...nextauth]'
 // }
 
 ///Could be static?
-export async function getServerSideProps(context) {
-  const code = context.params.code
+
+type TeamUser = User & { inTeam: boolean }
+
+export async function getServerSideProps(
+  context: GetServerSidePropsContext<{
+    code: string
+  }>
+) {
+  const code = context?.params?.code
 
   const session = await unstable_getServerSession(
     context.req,
@@ -35,11 +44,10 @@ export async function getServerSideProps(context) {
   let user = null
   if (session) {
     try {
-      const res = await axios.get(
+      const userRes = await axios.get(
         `${process.env.NEXT_PUBLIC_DB_HOST}/users/${session.user.username}` //populate
       )
-      user = res.data
-      user.inTeam = user.teams.find((team) => team.team_code === code) || false
+      user = userRes.data as User
     } catch (error) {
       console.log(error)
     }
@@ -50,11 +58,17 @@ export async function getServerSideProps(context) {
       `${process.env.NEXT_PUBLIC_DB_HOST}/teams?team_code=${code}`
     )
 
-    const team = res.data[0]
+    const team = res.data[0] as Team
+
+    if (user) {
+      user.inTeam = user.teams.find((team): boolean => team.team_code === code)
+        ? true
+        : false
+    }
 
     return {
       props: {
-        user: user,
+        currentUser: user,
         team: team,
         tournament: team.tournament,
         players_: team.player,
@@ -66,19 +80,27 @@ export async function getServerSideProps(context) {
   return { props: { team: null, tournament: null, players: [] } }
 }
 
-export default function Team({ user, team, tournament, players_ }) {
+interface Props {
+  currentUser: TeamUser
+  team: Team
+  tournament: Tournament
+  players_: Player[]
+}
+export default function Team({
+  currentUser,
+  team,
+  tournament,
+  players_,
+}: Props) {
   const router = useRouter()
   const [players, setPlayers] = useState(players_)
+  const [user, setUser] = useState(currentUser)
 
   if (!team) {
     return <>Hittade inget</>
   }
 
-  if (user) {
-  }
-
   async function handleJoin(event: any): Promise<void> {
-    console.log(user)
     try {
       const res = await axios.patch(
         `${process.env.NEXT_PUBLIC_DB_HOST}/users/${user.id}`,
@@ -86,7 +108,7 @@ export default function Team({ user, team, tournament, players_ }) {
           team: team.id,
         }
       )
-      console.log(res.data)
+      setUser({ ...user, inTeam: true })
     } catch (error) {
       console.log(error)
     }
@@ -94,18 +116,18 @@ export default function Team({ user, team, tournament, players_ }) {
 
   async function handlePlayerAdd(event: any): Promise<void> {
     event.preventDefault()
-    let res
     try {
-      res = await axios.post(`${process.env.NEXT_PUBLIC_DB_HOST}/player`, {
-        first_name: event.target.firstName.value,
-        last_name: event.target.lastName.value,
-        team: team.id,
-      })
+      const playerRes = await axios.post(
+        `${process.env.NEXT_PUBLIC_DB_HOST}/player`,
+        {
+          first_name: event.target.firstName.value,
+          last_name: event.target.lastName.value,
+          team: team.id,
+        }
+      )
 
-      if (res.status === 201) {
-        const newPlayer = res.data
-        setPlayers([...players, newPlayer])
-      }
+      const newPlayer = playerRes.data as Player
+      setPlayers([...players, newPlayer])
     } catch (error) {
       console.log(error)
     }
@@ -117,7 +139,7 @@ export default function Team({ user, team, tournament, players_ }) {
       {user && user.inTeam ? (
         <p>Ditt lag</p>
       ) : (
-        <button onClick={() => handleJoin(team.code)}>Gå med i lag</button>
+        <button onClick={() => handleJoin(team.team_code)}>Gå med i lag</button>
       )}
       <h2>{team.accepted ? 'antagen' : 'inte antagen'}</h2>
       <Link href={`/tournaments/${tournament.id}`}>
@@ -142,8 +164,8 @@ export default function Team({ user, team, tournament, players_ }) {
         </form>
 
         <ul>
-          {players_.length ? (
-            players_.map((player) => (
+          {players.length ? (
+            players.map((player) => (
               <li key={player.id}>{player.first_name}</li>
             ))
           ) : (

@@ -1,6 +1,12 @@
 import Link from 'next/link'
 
-export function TeamsList({ teams, handleTeamAccept }) {
+export function TeamsList({
+  teams,
+  handleTeamAccept,
+}: {
+  teams: Team[]
+  handleTeamAccept: (id: string, app: Application) => any
+}) {
   return (
     <ul>
       {teams.length ? (

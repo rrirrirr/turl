@@ -6,8 +6,16 @@ import { unstable_getServerSession } from 'next-auth'
 import { authOptions } from '../api/auth/[...nextauth]'
 import { format } from 'date-fns'
 import GameBox from '../../components/gameBox'
+import { GetServerSidePropsContext } from 'next'
+import { User } from '../../types/user'
+import { Center, Accordion, List, Box, Container, Stack } from '@mantine/core'
+import { useStyles } from '../../styles/styles'
 
-export async function getServerSideProps(context) {
+export async function getServerSideProps(
+  context: GetServerSidePropsContext<{
+    code: string
+  }>
+) {
   const session = await unstable_getServerSession(
     context.req,
     context.res,
@@ -30,7 +38,7 @@ export async function getServerSideProps(context) {
       `${process.env.NEXT_PUBLIC_DB_HOST}/users/${session.user.username}` //populate
     )
 
-    const user = userRes.data
+    const user = userRes.data as User
     const teams = user?.teams || []
 
     const tournaments = teams.length ? teams.map((team) => team.tournament) : []
@@ -57,50 +65,80 @@ export async function getServerSideProps(context) {
   }
 }
 
-export default function Tournaments({ user, tournaments, teams, games }) {
+//Maybe shouldn't populate
+type TeamWithPopulatedTournament = Omit<Team, 'tournament'> & {
+  tournament: Tournament
+}
+
+type GameWithPopulatedTournament = Omit<Game, 'tournament'> & {
+  tournament: Tournament
+}
+
+interface Props {
+  user: User
+  tournaments: Tournament[]
+  teams: TeamWithPopulatedTournament[]
+  games: GameWithPopulatedTournament[]
+}
+
+export default function Tournaments({
+  user,
+  tournaments,
+  teams,
+  games,
+}: Props) {
   if (!user) {
     return <p>Inget här</p>
   }
+  const { classes } = useStyles()
 
   return (
-    <>
-      <h1>{user.first_name}</h1>
+    <Container>
       <section>
-        <h2>Spelade Tävlingar</h2>
-        <ul>
+        <Stack>
+          <Container className={classes.titleBox}>
+            <h1>{user.first_name}</h1>
+          </Container>
+          <Center>
+            <h2>Spelade Tävlingar</h2>
+          </Center>
           {tournaments.length ? (
             tournaments.map((tournament) => (
-              <li key={tournament.id}>
-                <h3>
-                  <Link href={`/tournaments/${tournament.id}`}>
-                    {tournament.name}{' '}
-                  </Link>{' '}
-                </h3>
-                (Lag{' '}
-                <Link href={`blank`}>
-                  {teams.find((team) => team.tournament.id === tournament.id)
-                    ?.name || 'lag'}
-                  )
-                </Link>
-                <h4>Matcher:</h4>
-                <ul>
+              <Box key={tournament.id} className={classes.container} p="0">
+                <Box
+                  className={classes.titleBox}
+                  component={Link}
+                  href={`/tournaments/${tournament.id}`}
+                  m="0"
+                >
+                  <h3>{tournament.name} </h3>
+                </Box>
+                <b>
+                  Lag{' '}
+                  <Link href={`blank`}>
+                    {teams.find((team) => team.tournament.id === tournament.id)
+                      ?.name || 'lag'}
+                  </Link>
+                </b>
+                <h4>Matcher</h4>
+                <Container>
                   {games.length
                     ? games
                         .filter((game) => game.tournament.id === tournament.id)
                         .map((game) => (
-                          <li key={game.id}>
-                            <GameBox game={game} isAdmin={false} />
-                          </li>
+                          <List.Item key={game.id}>
+                            <GameBox game={game} />
+                          </List.Item>
                         ))
                     : 'Inga matcher'}
-                </ul>
-              </li>
+                </Container>
+              </Box>
             ))
           ) : (
-            <li>Inga tävlingar</li>
+            <b>Inga tävlingar</b>
           )}
-        </ul>
+        </Stack>
       </section>
-    </>
+    </Container>
   )
 }

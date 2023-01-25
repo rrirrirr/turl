@@ -6,8 +6,8 @@ import Image from 'next/image'
 import LoginBox from '../components/loginBox'
 import styles from '../styles/Home.module.css'
 import { authOptions } from './api/auth/[...nextauth]'
-import { User } from '../types/user'
 import Link from 'next/link'
+import { Button } from '@mantine/core'
 
 // type Props = { props: { session: Session | null } }
 
@@ -23,40 +23,60 @@ import Link from 'next/link'
 // }
 
 // export default function Home({ session }: { session: Session }) {
+
 export default function Home() {
   const { data: session, status } = useSession()
 
-  const user = (session?.user as User) || null
+  const user = (session?.user as AuthUser) || null
   return (
     <>
       <Head>
         <title>Turl</title>
       </Head>
       <main className={styles.main}>
-        {session ? (
-          <>
-            <p>Inloggad som {user.username}</p>
-            <button onClick={() => signOut()}>Logga ut</button>
-            <section>
-              <Link href={`/user/${user.userId}`} className={styles.navLink}>
+        <section className={styles.centerVertical}>
+          {session ? (
+            <>
+              <p>Inloggad som {user.username}</p>
+              <button onClick={() => signOut()}>Logga ut</button>
+              <Button
+                component={Link}
+                href={`/user/${user.userId}`}
+                className={styles.navLink}
+              >
                 Dina tävlingar
-              </Link>
-              <Link href="/tournaments" className={styles.navLink}>
-                Tävlingar
-              </Link>
-              <Link href="/history" className={styles.navLink}>
+              </Button>
+              <Button
+                component={Link}
+                href="/tournaments"
+                className={styles.navLink}
+              >
+                Öppna Tävlingar
+              </Button>
+              <Button
+                component={Link}
+                href="/history"
+                className={styles.navLink}
+              >
                 Din historik
-              </Link>
-              <Link href="/tournaments/new/edit" className={styles.navLink}>
+              </Button>
+              <Button
+                component={Link}
+                href="/tournaments/new/edit"
+                className={styles.navLink}
+              >
                 Skapa tävling
-              </Link>
-            </section>
-          </>
-        ) : (
-          <>
-            <LoginBox />
-          </>
-        )}
+              </Button>
+            </>
+          ) : (
+            <>
+              <LoginBox />
+              <Button component={Link} href="/signup">
+                Skapa Konto
+              </Button>
+            </>
+          )}
+        </section>
       </main>
     </>
   )

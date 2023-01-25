@@ -4,21 +4,9 @@ import { useState } from 'react'
 import { signIn, signOut, useSession } from 'next-auth/react'
 import Link from 'next/link'
 
-type SessionData = {
-  user: {
-    username: string
-    userId: string
-    accessToken: string
-    isAdmin: boolean
-  }
-  expires: string
-}
-
 export default function Login() {
-  // const { login } = useLogin()
-  // const { data: session } = useSession()
-
   const { data: session, status } = useSession()
+  const user: AuthUser | null = (session?.user as AuthUser) || null
 
   async function handleSubmit(event: any): Promise<void> {
     event.preventDefault()
@@ -30,7 +18,7 @@ export default function Login() {
   if (session) {
     return (
       <div>
-        Inloggad som {session.user.username} -{' '}
+        Inloggad som {user.username} -{' '}
         <button onClick={() => signOut()}>logga ut</button>
         <Link href="/session">session</Link>
       </div>

@@ -9,15 +9,24 @@ import GameBoxAdmin from '../../../components/gameBoxAdmin'
 import { compareAsc, format } from 'date-fns'
 import { TeamsList } from '../../../components/teamsList'
 import { InviteCreator } from '../../../components/inviteCreator'
+import { generateRoundRobinSchedule, sortGames } from '../../../utils/utils'
+import DatePicker from 'react-datepicker'
 
-export async function getServerSideProps(context) {
+import 'react-datepicker/dist/react-datepicker.css'
+import { GetServerSidePropsContext } from 'next'
+
+export async function getServerSideProps(
+  context: GetServerSidePropsContext<{
+    id: string
+  }>
+) {
   const session = await unstable_getServerSession(
     context.req,
     context.res,
     authOptions
   )
 
-  const tournamentId = context.params.id
+  const tournamentId = context.params?.id
 
   if (!session.user.isAdmin) {
     return {
@@ -39,16 +48,14 @@ export async function getServerSideProps(context) {
     const invites = tournament.invites
     const games = tournament.games
     const teams = tournament.teams
-    const sortedGames = tournament.games.sort((a, b) =>
-      compareAsc(new Date(a.start_date), new Date(b.start_date))
-    )
+    // const sortedGames = sortGames(tournament.games, 'ASC')
 
     return {
       props: {
         tournament: tournament,
         invites_: invites,
         teams_: teams,
-        games_: sortedGames,
+        games_: games,
         // games_: games.data,
       },
     }
@@ -71,24 +78,33 @@ type TournamentInfo = {
   games_: Game[]
 }
 
-export default function Admin({ tournament, invites_, teams_, games_ }) {
+interface Props {
+  tournament: Tournament
+  invites_: Invite[]
+  teams_: Team[]
+  games_: Game[]
+}
+
+export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
   if (!tournament) {
     return <p>Inget här</p>
   }
-  const [invites, setInvites] = useState(invites_)
-  const [teams, setTeams] = useState(teams_)
-  const [acceptedTeams, setAcceptedTeams] = useState([])
-  const [declinedTeams, setDeclinedTeams] = useState([])
-  const [waitingTeams, setWaitingTeams] = useState([])
-
-  const [games, setGames] = useState(games_)
+  const [invites, setInvites] = useState<Invite[]>(invites_)
+  const [teams, setTeams] = useState<Team[]>(teams_)
+  const [acceptedTeams, setAcceptedTeams] = useState<Team[]>([])
+  const [declinedTeams, setDeclinedTeams] = useState<Team[]>([])
+  const [waitingTeams, setWaitingTeams] = useState<Team[]>([])
+  const [schedule, setSchedule] = useState<Schedule | null>(null)
+  console.log(schedule)
+  const [games, setGames] = useState<Game[]>(games_)
   const { data: session, status } = useSession()
 
-  const [showGames, setShowGames] = useState(false)
-  const [showInvites, setShowInvites] = useState(false)
-  const [showAcceptedTeams, setShowAcceptedTeams] = useState(false)
-  const [showDeclinedTeams, setShowDeclinedTeams] = useState(false)
-  const [showWaitingTeams, setShowWaitingTeams] = useState(false)
+  const [showGames, setShowGames] = useState<boolean>(false)
+  const [showInvites, setShowInvites] = useState<boolean>(false)
+  const [showAcceptedTeams, setShowAcceptedTeams] = useState<boolean>(false)
+  const [showDeclinedTeams, setShowDeclinedTeams] = useState<boolean>(false)
+  const [showWaitingTeams, setShowWaitingTeams] = useState<boolean>(false)
+  const [showScheduler, setShowScheduler] = useState<boolean>(false)
 
   useEffect(() => {
     setAcceptedTeams(teams.filter((team) => team.accepted === 'accepted'))
@@ -107,7 +123,7 @@ export default function Admin({ tournament, invites_, teams_, games_ }) {
           id: 'new',
           code: '...',
           unique: !tournament.open,
-          expiration_date: expiration,
+          expiration_date: expiration || new Date(),
         },
       ])
       try {
@@ -136,7 +152,17 @@ export default function Admin({ tournament, invites_, teams_, games_ }) {
     }
 
   async function handleCreateGame() {
-    setGames([...games, { id: 'new' }])
+    setGames([
+      ...games,
+      {
+        id: 'new',
+        start_date: new Date(),
+        end_date: new Date(),
+        active: false,
+        game_type: tournament.game_type,
+        tournament: tournament.id,
+      },
+    ])
     // try {
     // const res = await axios.post(`${process.env.NEXT_PUBLIC_DB_HOST}/games`, {
     //   tournament: tournament.id,
@@ -199,7 +225,6 @@ export default function Admin({ tournament, invites_, teams_, games_ }) {
           teams.find((team) => team.id === id)
         )
 
-        console.log(addedTeams)
         setGames(
           [...games, { ...res.data, teams: addedTeams }].sort((a, b) =>
             compareAsc(new Date(a.start_date), new Date(b.start_date))
@@ -209,6 +234,56 @@ export default function Admin({ tournament, invites_, teams_, games_ }) {
         console.log(error)
       }
     }
+
+  function updateSchedule(date: Date, i: number): void {
+    setSchedule(
+      schedule?.map((group, j) => {
+        return i === j ? { ...group, startDate: date } : group
+      }) || []
+    )
+  }
+
+  async function addSchedule(): Promise<void> {
+    try {
+      const flatGames =
+        schedule?.flatMap((group) =>
+          group.games.map((game) => {
+            return {
+              tournament: tournament.id,
+              teams: game,
+              start_date: group.startDate,
+              id: '' + Math.random().toString(16).slice(2),
+              active: false,
+              game_type: tournament.game_type,
+            }
+          })
+        ) || ([] as Game[])
+
+      const reqs = flatGames.map((game) => {
+        return axios.post(`${process.env.NEXT_PUBLIC_DB_HOST}/games`, {
+          tournament: tournament.id,
+          teams: game.teams ? game.teams.map((team) => team.id) : [],
+          start_date: game.start_date,
+        })
+      })
+      // const reqs = schedule.flatMap((group) =>
+      //   group.games.map((game) => {
+      //     return axios.post(`${process.env.NEXT_PUBLIC_DB_HOST}/games`, {
+      //       tournament: tournament.id,
+      //       teams: game.map((team) => team.id),
+      //       start_date: group.startDate,
+      //     })
+      //   })
+      // )
+      Promise.all(reqs).then((res) => {
+        const gamesToAdd = res.map((r) => r.data)
+        console.log(gamesToAdd)
+      })
+      setGames([...games, ...flatGames])
+    } catch (error) {
+      console.log(error)
+    }
+  }
 
   return (
     <section>
@@ -296,11 +371,12 @@ export default function Admin({ tournament, invites_, teams_, games_ }) {
                 <ul>
                   {invites.map((invitation) => (
                     <li key={invitation.id}>
-                      {new Date(invitation.expiration_date) < new Date() ? (
+                      {new Date(invitation.expiration_date || '') <
+                      new Date() ? (
                         <p>
                           Gick ut{' '}
                           {format(
-                            new Date(invitation.expiration_date),
+                            new Date(invitation.expiration_date || ''),
                             'yyyy-MM-dd HH:mm'
                           )}
                         </p>
@@ -308,7 +384,7 @@ export default function Admin({ tournament, invites_, teams_, games_ }) {
                         <b>
                           Går ut:
                           {format(
-                            new Date(invitation.expiration_date),
+                            new Date(invitation.expiration_date || ''),
                             'yyyy-MM-dd HH:mm'
                           )}
                         </b>
@@ -326,9 +402,7 @@ export default function Admin({ tournament, invites_, teams_, games_ }) {
                       </b>
                       {' - '}
                       {session && (
-                        <button
-                          onClick={() => handleDeleteInvite(invitation.id)}
-                        >
+                        <button onClick={() => deleteInvite(invitation.id)}>
                           Ta bort
                         </button>
                       )}
@@ -373,6 +447,57 @@ export default function Admin({ tournament, invites_, teams_, games_ }) {
         ) : (
           <>
             <button onClick={() => setShowGames(true)}>Visa Matcher</button>
+          </>
+        )}
+
+        {showScheduler ? (
+          <section>
+            <button onClick={() => setShowScheduler(false)}>
+              Göm Schemaläggare
+            </button>
+            {schedule ? (
+              <>
+                <h2>Schema</h2>
+                <ul>
+                  {schedule.map((group, i) => (
+                    <li key={`${group.startDate}${i}`}>
+                      <h3>Runda {i + 1}</h3>
+                      <DatePicker
+                        selected={group.startDate}
+                        onChange={(date: Date) => updateSchedule(date, i)}
+                        showTimeSelect
+                        dateFormat="Pp"
+                      />
+                      {group.games.map((game) => (
+                        <div key={`${game[0].id}+${game[1].id}`}>
+                          {game.map((team, i) => (
+                            <span key={team.id}>
+                              {team.name}
+                              {i < game.length - 1 && ' vs '}
+                            </span>
+                          ))}
+                        </div>
+                      ))}
+                    </li>
+                  ))}
+                </ul>
+                <button onClick={() => addSchedule()}>Skapa Schema</button>
+              </>
+            ) : (
+              <button
+                onClick={() =>
+                  setSchedule(generateRoundRobinSchedule(teams, 2))
+                }
+              >
+                Generera schema
+              </button>
+            )}
+          </section>
+        ) : (
+          <>
+            <button onClick={() => setShowScheduler(true)}>
+              Visa Schemaläggare
+            </button>
           </>
         )}
       </>

@@ -3,13 +3,18 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { createScoreObject } from '../../utils/utils'
+import { GetServerSideProps } from 'next'
+import { InferGetServerSidePropsType } from 'next'
 
-type Result = any
+import { GetServerSidePropsContext } from 'next'
 
-export async function getServerSideProps({ params }) {
+export const getServerSideProps: GetServerSideProps = async (
+  context: GetServerSidePropsContext
+) => {
+  const id = context.params?.id
   try {
     const res = await axios.get(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/games/${params.id}`
+      `${process.env.NEXT_PUBLIC_DB_HOST}/games/${id}`
     )
     const game = res.data
     const teams = game?.teams || []
@@ -36,7 +41,19 @@ export async function getServerSideProps({ params }) {
   }
 }
 
-export default function Tournaments({ tournament, teams, game, result_ }) {
+interface Props {
+  tournament: Tournament
+  teams: Team[]
+  game: Game
+  result_: Result
+}
+
+export default function Tournaments({
+  tournament,
+  teams,
+  game,
+  result_,
+}: Props) {
   if (!game) {
     return <p>Inget här</p>
   }
@@ -58,14 +75,18 @@ export default function Tournaments({ tournament, teams, game, result_ }) {
                   onClick={() =>
                     setResult({
                       ...result,
-                      [team.name]: { score: result[team.name].score + 1 },
+                      [team.name]: {
+                        score: (result[team.name].score || 0) + 1,
+                      },
                     })
                   }
                 >
                   {' '}
                   {result[team.name].score}
                 </b>
-                {i === game.teams.length - 1 ? '' : ' vs '}
+                {game.teams?.length && i === game.teams.length - 1
+                  ? ''
+                  : ' vs '}
               </span>
             ))
           : 'Inga lag'}

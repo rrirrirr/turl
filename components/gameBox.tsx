@@ -4,35 +4,62 @@ import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { createScoreObject } from '../utils/utils'
 import { format } from 'date-fns'
+import { Box, Group, Button, Flex } from '@mantine/core'
+import { useStyles } from '../styles/styles'
 
-export default function GameBox({ game }) {
-  const [result, setResult] = useState(
-    game.result || createScoreObject(game.teams)
+export default function GameBox({ game }: { game: Game }) {
+  const { classes } = useStyles()
+  const result_ = (game?.result as Result) || null
+  const [result, setResult] = useState<Result>(
+    result_ || createScoreObject(game.teams)
   )
-  const [update, setUpdate] = useState(false)
+  const [update, setUpdate] = useState<boolean>(false)
 
   return (
-    <section>
-      <p>{game.active ? 'Pågående' : game.end_date ? 'Avslutad' : ''}</p>
-      <span> {format(new Date(game.start_date), 'yyyy-MM-dd HH:mm')}</span>
-
+    <Box>
+      <div>
+        <span> {format(new Date(game.start_date), 'yyyy-MM-dd HH:mm')}</span>
+      </div>
       <b>{game.name || ''}</b>
       <section>
-        {game.teams?.length
-          ? game.teams.map((team, i) => (
-              <div key={team.id}>
-                <div>
-                  <h3> {result[team.name].score}</h3>
-                </div>
-                <div>
-                  <Link href={`/team/overview/${team.id}`}>
-                    <h3>{team.name}</h3>{' '}
-                  </Link>
-                </div>
-              </div>
-            ))
-          : 'Inga lag'}
+        <Flex
+          bg="rgba(0, 0, 0, .3)"
+          gap="0rem"
+          justify="flex-start"
+          align="flex-start"
+          direction="row"
+        >
+          {game.teams?.length
+            ? game.teams.map((team, i) => (
+                <Flex
+                  mih={50}
+                  key={team.id}
+                  bg="rgba(0, 0, 0, .3)"
+                  gap="0"
+                  justify="flex-start"
+                  align="flex-start"
+                  direction="column"
+                >
+                  <Button
+                    className={classes.gameRow}
+                    color="indigo"
+                    radius="xs"
+                  >
+                    {result[team.name].score}
+                  </Button>
+                  <Box
+                    className={classes.gameRow}
+                    component={Link}
+                    href={`/team/overview/${team.id}`}
+                  >
+                    {team.name}
+                  </Box>
+                </Flex>
+              ))
+            : 'Inga lag'}
+        </Flex>
+        {game.active ? 'Pågående' : game.end_date ? 'Avslutad' : ''}
       </section>
-    </section>
+    </Box>
   )
 }

@@ -1,13 +1,34 @@
-import { useState } from 'react'
+import { FormEvent, useState } from 'react'
 import DatePicker from 'react-datepicker'
 
 import 'react-datepicker/dist/react-datepicker.css'
 
-export function GameCreator({ teams, addTeam }) {
+interface GameElements extends HTMLFormControlsCollection {
+  team1: HTMLInputElement
+  team2: HTMLInputElement
+}
+
+interface GameForm extends HTMLFormElement {
+  readonly elements: GameElements
+}
+
+export function GameCreator({
+  teams,
+  addTeam,
+}: {
+  teams: Team[]
+  addTeam: (args: { startDate: Date; teamIds: string[] }) => any
+}) {
   const [startDate, setStartDate] = useState(new Date())
 
-  function handleSubmit(event) {
+  function handleSubmit(event: FormEvent<GameForm>) {
     event.preventDefault()
+    const team1 = event.target.team1.value
+    const team2 = event.target.team2.value
+    if (team1 === team2) {
+      alert('Du måste välja två olika lag')
+      return
+    }
 
     addTeam({
       startDate,

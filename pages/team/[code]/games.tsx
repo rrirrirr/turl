@@ -4,12 +4,18 @@ import styles from 'styles/Home.module.css'
 import Link from 'next/link'
 import { useState } from 'react'
 import GameBox from '../../../components/gameBox'
+import { GetServerSidePropsContext } from 'next'
 
 ///Could be static?
-export async function getServerSideProps({ params }) {
+export async function getServerSideProps(
+  context: GetServerSidePropsContext<{
+    code: string
+  }>
+) {
+  const code = context?.params?.code
   try {
     const teamRes = await axios.get(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/teams?team_code=${params.code}`
+      `${process.env.NEXT_PUBLIC_DB_HOST}/teams?team_code=${code}`
     )
     const team = teamRes.data[0]
     const games = team?.games || []
@@ -23,9 +29,18 @@ export async function getServerSideProps({ params }) {
   return { props: { team: null, tournament: null } }
 }
 
-export default function TeamGames({ team, games }) {
-  const [showUpcomingGames, setShowUpcomingGames] = useState(false)
-  const [showPlayedGames, setShowPlayedGames] = useState(false)
+interface Props {
+  team: Team
+  games: Game[]
+}
+
+export default function TeamGames({ team, games }: Props) {
+  const [showUpcomingGames, setShowUpcomingGames] = useState<Game[] | boolean>(
+    false
+  )
+  const [showPlayedGames, setShowPlayedGames] = useState<Game[] | boolean>(
+    false
+  )
 
   const upcomingGames = games.filter(
     (game) => new Date(game.start_date) > new Date()

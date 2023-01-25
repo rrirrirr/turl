@@ -1,25 +1,21 @@
 import axios from 'axios'
 import { useState } from 'react'
 import Link from 'next/link'
-import { useSession } from 'next-auth/react'
 import { createScoreObject } from '../utils/utils'
 import { format } from 'date-fns'
-import { setUncaughtExceptionCaptureCallback } from 'process'
 
-export default function GameBoxAdmin(props) {
+export default function GameBoxAdmin(props: { game: Game }) {
   const [game, setGame] = useState(props.game)
-  if (game.result) {
-    console.log(JSON.parse(game.result))
-  }
-  const [result, setResult] = useState(
-    game.result ? JSON.parse(game.result) : createScoreObject(game.teams)
+  const [result, setResult] = useState<Result>(
+    typeof game.result === 'string'
+      ? JSON.parse(game.result)
+      : createScoreObject(game?.teams || [])
   )
   const [update, setUpdate] = useState(false)
   const [active, setActive] = useState(game.active)
 
   async function updateResult(gameId: string, result: Result): Promise<void> {
     try {
-      console.log(result)
       const res = await axios.patch(
         `${process.env.NEXT_PUBLIC_DB_HOST}/games/${gameId}`,
         {
@@ -64,7 +60,7 @@ export default function GameBoxAdmin(props) {
       <section>
         {game.teams?.length
           ? game.teams.map((team, i) => (
-              <div key={team.id}>
+              <div key={`${team.id}${game.id}`}>
                 <div
                   onClick={() => {
                     if (!active) {

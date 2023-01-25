@@ -1,2 +1,1 @@
-type Session = { expires: Date; user: User }
-
+type Session = { expires: Date; user: AuthUser }

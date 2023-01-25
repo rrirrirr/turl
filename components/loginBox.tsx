@@ -1,39 +1,66 @@
 import { useRouter } from 'next/router'
 import { signIn } from 'next-auth/react'
+import { Button, Center, Group, TextInput } from '@mantine/core'
+import styles from '../styles/Home.module.css'
+import { useForm } from '@mantine/form'
+import { IconMail, IconMailbox, IconPassword } from '@tabler/icons-react'
 
 export default function LoginBox() {
-  async function handleSubmit(event: any): Promise<void> {
-    event.preventDefault()
-    const username = event.target.username.value
-    const password = event.target.password.value
-    const res = await signIn('credentials', { username, password })
+  const form = useForm({
+    initialValues: {
+      username: 'admin@bajs.com',
+      password: 'test',
+    },
+
+    validate: {},
+  })
+
+  async function handleSubmit({
+    username,
+    password,
+  }: {
+    username: string
+    password: string
+  }): Promise<void> {
+    try {
+      const res = await signIn('credentials', { username, password })
+    } catch (error) {
+      console.log(error)
+    }
   }
 
   return (
-    <>
-      <form onSubmit={handleSubmit}>
-        <label>Username</label>
-        <input
-          onChange={() => ''}
-          type="text"
-          id="username"
-          name="username"
-          required
-          placeholder="admin@bajs.com"
-          value="admin@bajs.com"
-        />
-        <label>Password</label>
-        <input
-          onChange={() => ''}
-          type="text"
-          id="password"
-          name="password"
-          required
-          placeholder="test"
-          value="test"
-        />
-        <button>Login</button>
+    <Center>
+      <form onSubmit={form.onSubmit((values) => handleSubmit(values))}>
+        <div>
+          <TextInput
+            label="Email"
+            icon={<IconMail />}
+            type="text"
+            id="username"
+            name="username"
+            {...form.getInputProps('username')}
+            required
+          />
+        </div>
+        <div>
+          <TextInput
+            label="Password"
+            type="text"
+            icon={<IconPassword />}
+            id="password"
+            name="password"
+            {...form.getInputProps('password')}
+            required
+            placeholder="test"
+          />
+        </div>
+        <Group position="center" mt="xl">
+          <Button color="red" type="submit">
+            Login
+          </Button>
+        </Group>
       </form>
-    </>
+    </Center>
   )
 }

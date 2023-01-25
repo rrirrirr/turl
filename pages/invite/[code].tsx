@@ -1,6 +1,11 @@
 import axios from 'axios'
+import {
+  GetServerSidePropsContext,
+  GetStaticPathsContext,
+  GetStaticPropsContext,
+} from 'next'
 import { useRouter } from 'next/router'
-import { useState } from 'react'
+import { FormEvent, useState } from 'react'
 
 // export async function getStaticPaths() {
 //   const res = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/invitations`)
@@ -20,10 +25,26 @@ import { useState } from 'react'
 // }
 
 ///Could be static?
-export async function getServerSideProps({ params }) {
+
+export async function getStaticPaths() {
+  const res = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/invitations`)
+  const invites: Invite[] = res.data
+
+  const paths = invites.map((invite) => ({
+    params: { code: invite.code },
+  }))
+  return { paths, fallback: false }
+}
+
+export async function getStaticProps(
+  context: GetStaticPropsContext<{
+    code: string
+  }>
+) {
+  const code = context?.params?.code
   try {
     const inviteRes = await axios.get(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/invites?code=${params.code}`
+      `${process.env.NEXT_PUBLIC_DB_HOST}/invites?code=${code}`
     )
     const invite = inviteRes.data[0]
     const tournament = invite.tournament
@@ -36,16 +57,50 @@ export async function getServerSideProps({ params }) {
   return { props: { invite: null, tournament: null } }
 }
 
-export default function Invite({ invite, tournament }) {
+// export async function getServerSideProps({ params }) {
+//   try {
+//     const inviteRes = await axios.get(
+//       `${process.env.NEXT_PUBLIC_DB_HOST}/invites?code=${params.code}`
+//     )
+//     const invite = inviteRes.data[0]
+//     const tournament = invite.tournament
+//     return {
+//       props: { invite: invite, tournament: tournament },
+//     }
+//   } catch (error) {
+//     console.log(error)
+//   }
+//   return { props: { invite: null, tournament: null } }
+// }
+
+interface InviteElements extends HTMLFormControlsCollection {
+  [key: number]: HTMLInputElement
+}
+
+interface InviteForm extends HTMLFormElement {
+  readonly elements: InviteElements
+}
+
+interface Props {
+  invite: Invite
+  tournament: Tournament
+}
+interface PendingPlayer {
+  [key: string]: string | null
+}
+
+export default function Invite({ invite, tournament }: Props) {
   const router = useRouter()
-  const [players, setPlayers] = useState(
-    Array(tournament.min_num_players_in_team)
+  const [players, setPlayers] = useState<Array<PendingPlayer | string>>(
+    Array(tournament.min_num_players_in_team || 0)
       .fill('')
       .map((_, i) => {
         return { [`first_name${i}`]: null, [`last_name${i}`]: null }
       })
   )
-  const [hiddenPlayers, setHiddenPlayers] = useState([])
+  const [hiddenPlayers, setHiddenPlayers] = useState<
+    Array<PendingPlayer | number>
+  >([])
 
   if (!invite) {
     return <>Hittade inget.</>
@@ -59,7 +114,8 @@ export default function Invite({ invite, tournament }) {
     return <>Inbjudan har gått ut!</>
   }
 
-  async function acceptInvite(event) {
+  //change to controlled form
+  async function acceptInvite(event: FormEvent<InviteForm>) {
     event.preventDefault()
     try {
       const playersToAdd = players
@@ -70,7 +126,6 @@ export default function Invite({ invite, tournament }) {
           }
         })
         .filter((p, i) => !hiddenPlayers.includes(i))
-      console.log(playersToAdd)
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_DB_HOST}/teams`,
         {
@@ -113,16 +168,17 @@ export default function Invite({ invite, tournament }) {
             <input type="text" id={`firstName${i}`} name={`firstName${i}`} />
             <label htmlFor={`lastName${i}`}>Efternamn:</label>
             <input type="text" id={`lastName${i}`} name={`lastName${i}`} />
-            {i >= tournament.min_num_players_in_team && (
-              <button
-                onClick={(e) => {
-                  e.preventDefault()
-                  setHiddenPlayers([...hiddenPlayers, i])
-                }}
-              >
-                ta bort
-              </button>
-            )}
+            {tournament.min_num_players_in_team === undefined ||
+              (i >= tournament.min_num_players_in_team && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setHiddenPlayers([...hiddenPlayers, i])
+                  }}
+                >
+                  ta bort
+                </button>
+              ))}
           </div>
         ))}
         <button

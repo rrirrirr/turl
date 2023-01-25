@@ -6,10 +6,15 @@ import { GameCreator } from '../../components/gameCreator'
 import { compareAsc, format } from 'date-fns'
 import GameBoxAdmin from '../../components/gameBoxAdmin'
 import GameBox from '../../components/gameBox'
+import { TeamsList } from '../../components/teamsList'
+import GamesList from '../../components/gamesList'
+import { GetStaticPropsContext } from 'next'
+import { Header } from '../../components/header'
+import { Button, Collapse, Container } from '@mantine/core'
 
 export async function getStaticPaths() {
   const res = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/tournaments`)
-  const tournaments = res.data
+  const tournaments = res.data as Tournament[]
 
   const paths = tournaments.map((tournament) => ({
     params: { id: tournament.id },
@@ -18,33 +23,34 @@ export async function getStaticPaths() {
   return { paths, fallback: false }
 }
 
-export async function getStaticProps({ params }) {
+export async function getStaticProps(
+  context: GetStaticPropsContext<{
+    id: string
+  }>
+) {
+  const id = context.params?.id
   try {
-    const tournament = await axios.get(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/tournaments/${params.id}`
+    const tournamentRes = await axios.get(
+      `${process.env.NEXT_PUBLIC_DB_HOST}/tournaments/${id}`
     )
+    const tournament = tournamentRes.data as Tournament
+    const teams = tournament?.teams?.filter((team) => team.accepted) || []
+    const games = tournament?.games || []
 
-    const invites = await axios.get(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/invites?tournament=${params.id}`
-    )
+    const sortedGames =
+      games?.sort((a, b) =>
+        compareAsc(new Date(a.start_date), new Date(b.start_date))
+      ) || []
 
-    const teams = await axios.get(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/teams?tournament=${params.id}`
-    )
-
-    const games = await axios.get(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/games?tournament=${params.id}`
-    )
-    const sortedGames = games.data.sort((a, b) =>
-      compareAsc(new Date(a.start_date), new Date(b.start_date))
-    )
+    const sortedGamesWithParsedResults = sortedGames.map((game) => {
+      return { ...game, result: JSON.parse(game.result as string) }
+    })
 
     return {
       props: {
-        tournament: tournament.data,
-        invites_: invites.data,
-        teams_: teams.data,
-        games_: sortedGames,
+        tournament: tournament,
+        teams: teams,
+        games: sortedGamesWithParsedResults,
         // games_: games.data,
       },
     }
@@ -53,7 +59,6 @@ export async function getStaticProps({ params }) {
     return {
       props: {
         tournament: null,
-        invites_: null,
         teams_: null,
         games_: null,
       },
@@ -61,215 +66,118 @@ export async function getStaticProps({ params }) {
   }
 }
 
-export default function Tournaments({ tournament, invites_, teams_, games_ }) {
+interface Props {
+  tournament: Tournament
+  teams: Team[]
+  games: Game[]
+}
+
+export default function Tournaments({ tournament, teams, games }: Props) {
   if (!tournament) {
     return <p>Inget här</p>
   }
 
-  const [invites, setInvites] = useState(invites_)
-  const [teams, setTeams] = useState(teams_)
-  const [games, setGames] = useState(games_)
+  const [showActiveGames, setShowActiveGames] = useState<boolean>(false)
+  const [showPlayedGames, setShowPlayedGames] = useState<boolean>(false)
+  const [showUpcomingGames, setShowUpcomingGames] = useState<boolean>(false)
+
+  const activeGames = games.filter((game) => game.active)
+  const playedGames = games.filter((game) => game.end_date)
+  const upcomingGames = games.filter((game) => !game.active && !game.end_date)
   const { data: session, status } = useSession()
 
-  async function handleCreateInvite(unique) {
-    setInvites([
-      ...invites,
-      { id: 'new', code: '...', unique: !tournament.open },
-    ])
-    try {
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_DB_HOST}/invites`,
-        {
-          tournament: tournament.id,
-          unique: tournament.open,
-          expiration_date: new Date(),
-          name: tournament.name,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${session.user.accessToken}`,
-          },
-        }
-      )
-      setInvites([...invites, { id: res.data.id, code: res.data.code, unique }])
-    } catch (error) {
-      console.log(error)
-      setInvites(invites.filter((invite) => invite.id !== 'new'))
-    }
-  }
-
-  async function handleCreateGame() {
-    setGames([...games, { id: 'new' }])
-    // try {
-    // const res = await axios.post(`${process.env.NEXT_PUBLIC_DB_HOST}/games`, {
-    //   tournament: tournament.id,
-    // })
-    // setGames([...games, res.data])
-    // } catch (error) {
-    //   console.log(error)
-    // }
-  }
-
-  async function handleDeleteInvite(id: string) {
-    const res = await axios.delete(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/invites/${id}`
-    )
-    setInvites(invites.filter((invite) => invite.id !== id))
-  }
-
-  async function handleTeamAccept(
-    teamId: string,
-    change: boolean
-  ): Promise<void> {
-    const res = await axios.patch(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/teams/${teamId}`,
-      {
-        accepted: change,
-      }
-    )
-    if (res) {
-      const patchedTeam = res.data
-      console.log(patchedTeam)
-      setTeams(
-        teams
-          .map((team) => {
-            return team.id === patchedTeam.id ? patchedTeam : team
-          })
-          .sort((a, b) => compareAsc(a.start_date, b.start_date))
-      )
-    }
-  }
-
-  async function handleTeamAdd(event, gameId: string): Promise<void> {
-    // event.preventDefault()
-    // const update = {
-    //   teams: [event.target.team1.value, event.target.team2.value],
-    // }
-    // try {
-    //   const res = await axios.post(`${process.env.NEXT_PUBLIC_DB_HOST}/games`, {
-    //     tournament: tournament.id,
-    //     teams: [event.target.team1.value, event.target.team2.value],
-    //   })
-    //   setGames([...games, res.data])
-    // } catch (error) {
-    //   console.log(error)
-    // }
-    // const res = await axios.patch(
-    //   `${process.env.NEXT_PUBLIC_DB_HOST}/games/${gameId}`,
-    //   update
-    // )
-    // if (res) {
-    //   const patchedTeam = res.data
-    //   console.log(patchedTeam)
-    //   setTeams(
-    //     teams.map((team) => {
-    //       return team.id === patchedTeam.id ? patchedTeam : team
-    //     })
-    //   )
-    // }
-  }
-  const addTeam =
-    (tournamentId: string) =>
-    async ({
-      startDate,
-      teamIds,
-    }: {
-      startDate: Date
-      teamIds: string[]
-    }): Promise<void> => {
-      try {
-        const res = await axios.post(
-          `${process.env.NEXT_PUBLIC_DB_HOST}/games`,
-          {
-            tournament: tournamentId,
-            teams: teamIds,
-            start_date: startDate,
-          }
-        )
-        // console.log({ ...res.data, teams })
-        const addedTeams = teamIds.map((id) =>
-          teams.find((team) => team.id === id)
-        )
-
-        console.log(addedTeams)
-        setGames(
-          [...games, { ...res.data, teams: addedTeams }].sort((a, b) =>
-            compareAsc(new Date(a.start_date), new Date(b.start_date))
-          )
-        )
-      } catch (error) {
-        console.log(error)
-      }
-    }
-
   return (
-    <section>
-      <Link href={`/tournaments/${tournament.id}/admin`}>Admin</Link>
-      <h1>{tournament.name}</h1>
-      <button onClick={() => handleCreateVenue(true)}>Skapa inbjudan</button>
-      <div>
-        <Link href={`${tournament.id}/edit`}>Ändra</Link>
-      </div>
-      <h2>{tournament.open ? 'Öppen tävling' : 'Endast inbjudan'}</h2>
-      <button onClick={() => handleCreateInvite(true)}>Skapa inbjudan</button>
-      {invites.length ? (
-        <ul>
-          {invites.map((invitation) => (
-            <li key={invitation.id}>
-              <Link href={`/invite/${invitation.code}`}>{invitation.code}</Link>{' '}
-              - <b>{invitation.unique ? 'Inte använd' : 'Öppen inbjudan'}</b>
-              {' - '}
-              {session && (
-                <button onClick={() => handleDeleteInvite(invitation.id)}>
-                  Ta bort
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>...</p>
-      )}
-      {teams.length ? (
-        <ul>
-          {teams.map((team) => (
-            <li key={team.id}>
-              <Link href={`/team/${team.team_code}`}>
-                {team.name} {team.accepted ? 'Antagen' : 'Nekad'}
-              </Link>
-              {team.accepted ? (
-                <button onClick={() => handleTeamAccept(team.id, false)}>
-                  Neka
-                </button>
-              ) : (
-                <button onClick={() => handleTeamAccept(team.id, true)}>
-                  Anta
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>Inga anmälda lag</p>
-      )}
+    <Container>
       <section>
-        <GameCreator teams={teams} addTeam={addTeam(tournament.id)} />
+        <Button component={Link} href={`${tournament.id}/table`}>
+          Se tabell
+        </Button>
+        <h1>{tournament.name}</h1>
+        {tournament.venue && <p>I {tournament.venue}</p>}
+        <ul>
+          <li>{tournament.open ? 'Öppen tävling' : 'Invitational'}</li>
+          <li>
+            {tournament.start_date
+              ? format(new Date(tournament.start_date), 'yyyy-MM-dd')
+              : 'Inget startdatum'}
+            {' - '}
+            {tournament.end_date
+              ? format(new Date(tournament.end_date), 'yyyy-MM-dd')
+              : 'Inget slutdatum'}
+          </li>
+          <li>{tournament.format}</li>
+          <li>
+            {tournament.max_num_teams
+              ? `Max ${tournament.max_num_teams} lag`
+              : 'Obegränsat med lag'}
+          </li>
+          <li>
+            {tournament.min_num_players_in_team
+              ? `Minst ${tournament.min_num_players_in_team} per lag`
+              : 'Obegränsat antal spelare i lag'}
+          </li>
+        </ul>
       </section>
+      {tournament.description && <section>{tournament.description}</section>}
       <section>
-        {games.length ? (
+        <h2>Lag</h2>
+        {teams.length ? (
           <ul>
-            {games.map((game, i) => (
-              <li key={game.id}>
-                <Link href={`/game/${game.id}`}>Match: {i + 1}</Link>
-                <GameBox game={game} />
+            {teams.map((team, i) => (
+              <li key={team.id}>
+                <Link href={`/teamoverview/${team.id}`}>{team.name}</Link>
               </li>
             ))}
           </ul>
         ) : (
           <p>Inga matcher</p>
         )}
-        <button onClick={() => handleCreateGame()}>Skapa Match</button>
       </section>
-    </section>
+
+      <Button
+        m="1rem"
+        onClick={() => {
+          setShowActiveGames((o: boolean) => !o)
+          setShowUpcomingGames(() => false)
+          setShowPlayedGames(() => false)
+        }}
+      >
+        Visa pågående matcher
+      </Button>
+
+      <Button
+        m="1rem"
+        onClick={() => {
+          setShowUpcomingGames((o: boolean) => !o)
+          setShowActiveGames(() => false)
+          setShowPlayedGames(() => false)
+        }}
+      >
+        Visa kommande matcher
+      </Button>
+
+      <Button
+        m="1rem"
+        onClick={() => {
+          setShowPlayedGames((o: boolean) => !o)
+          setShowUpcomingGames(() => false)
+          setShowActiveGames(() => false)
+        }}
+      >
+        Visa spelade matcher
+      </Button>
+
+      <Collapse in={showActiveGames}>
+        <GamesList games={activeGames} />
+      </Collapse>
+
+      <Collapse in={showPlayedGames}>
+        <GamesList games={playedGames} />
+      </Collapse>
+
+      <Collapse in={showUpcomingGames}>
+        <GamesList games={upcomingGames} />
+      </Collapse>
+    </Container>
   )
 }

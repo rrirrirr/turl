@@ -3,9 +3,13 @@ type Tournament = {
   description: string
   format: string
   name: string
-  maxTeams?: number
-  startDate: Date
-  endDate: Date
+  max_num_teams?: number
+  min_num_players_in_team?: number
+  start_date: Date
+  end_date: Date
+  venue?: string
   open: boolean
-  gameType: string
+  game_type: string
+  games?: Game[]
+  teams?: Team[]
 }

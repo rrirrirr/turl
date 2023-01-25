@@ -2,10 +2,11 @@ import axios from 'axios'
 import { useRouter } from 'next/router'
 import styles from 'styles/Home.module.css'
 import Link from 'next/link'
+import { GetStaticPropsContext } from 'next'
 
 export async function getStaticPaths() {
   const teamsRes = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/teams`)
-  const teams = teamsRes.data
+  const teams = teamsRes.data as Team[]
 
   const paths = teams.map((team) => ({
     params: { code: team.team_code },
@@ -13,9 +14,14 @@ export async function getStaticPaths() {
   return { paths, fallback: false }
 }
 
-export async function getStaticProps({ params }) {
+export async function getStaticProps(
+  context: GetStaticPropsContext<{
+    code: string
+  }>
+) {
+  const code = context?.params?.code
   const teamRes = await axios.get(
-    `${process.env.NEXT_PUBLIC_DB_HOST}/teams?team_code=${params.code}`
+    `${process.env.NEXT_PUBLIC_DB_HOST}/teams?team_code=${code}`
   )
   const team = teamRes.data[0]
 
@@ -40,8 +46,10 @@ export async function getStaticProps({ params }) {
 //   }
 //   return { props: { team: null } }
 // }
-
-export default function Info({ team }) {
+interface Props {
+  team: Team
+}
+export default function Info({ team }: Props) {
   const router = useRouter()
 
   if (!team) {
@@ -52,7 +60,7 @@ export default function Info({ team }) {
     <main className={styles.main}>
       <section>
         <h2>Spelare</h2>
-        {team.player.length ? (
+        {team?.player?.length ? (
           <ul>
             {team.player.map((player) => (
               <li key={player.id}>

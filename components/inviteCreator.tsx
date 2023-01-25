@@ -3,7 +3,11 @@ import DatePicker from 'react-datepicker'
 
 import 'react-datepicker/dist/react-datepicker.css'
 
-export function InviteCreator({ creator }) {
+export function InviteCreator({
+  creator,
+}: {
+  creator: (expiration: Date) => any
+}) {
   const [expiration, setExpiration] = useState(new Date())
   return (
     <div>

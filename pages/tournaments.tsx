@@ -3,14 +3,18 @@ import axios from 'axios'
 import Link from 'next/link'
 import { useState } from 'react'
 
-export async function getStaticProps(context) {
+export async function getStaticProps() {
   const res = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/tournaments`)
   return { props: { tournaments: res.data } }
 }
 
 // const fetcher = (...args) => axios(...args).then((res) => res.data)
 
-export default function Tournaments(props) {
+interface Props {
+  tournaments: Tournament[]
+}
+
+export default function Tournaments(props: Props) {
   // const { data, error, isLoading } = useSWR(
   //   `${process.env.NEXT_PUBLIC_DB_HOST}/tournaments`,
   //   fetcher
