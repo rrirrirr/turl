@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { GameCreator } from '../../components/gameCreator'
@@ -8,30 +8,99 @@ import GameBoxAdmin from '../../components/gameBoxAdmin'
 import GameBox from '../../components/gameBox'
 import { TeamsList } from '../../components/teamsList'
 import GamesList from '../../components/gamesList'
-import { GetStaticPropsContext } from 'next'
+import { GetServerSidePropsContext, GetStaticPropsContext } from 'next'
 import { Header } from '../../components/header'
-import { Button, Collapse, Container } from '@mantine/core'
+import {
+  Button,
+  Collapse,
+  Container,
+  Group,
+  useMantineTheme,
+} from '@mantine/core'
+import is from 'date-fns/esm/locale/is/index.js'
 
-export async function getStaticPaths() {
-  const res = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/tournaments`)
-  const tournaments = res.data as Tournament[]
+// export async function getStaticPaths()  || session?.user.isAdmin === true{
+//   const res = await axios.get(
+//     `${process.env.NEXT_PUBLIC_DB_HOST}/tournaments`,
+//     {
+//       headers: {
+//         Authorization: process.env.NEXT_PUBLIC_DB_TOKEN,
+//       },
+//     }
+//   )
+//   const tournaments = res.data as Tournament[]
 
-  const paths = tournaments.map((tournament) => ({
-    params: { id: tournament.id },
-  }))
+//   const paths = tournaments.map((tournament) => ({
+//     params: { id: tournament.id },
+//   }))
 
-  return { paths, fallback: false }
-}
+//   return { paths, fallback: 'blocking' }
+// }
 
-export async function getStaticProps(
-  context: GetStaticPropsContext<{
+// export async function getStaticProps(
+//   context: GetStaticPropsContext<{
+//     id: string
+//   }>
+// ) {
+//   const id = context.params?.id
+//   try {
+//     const tournamentRes = await axios.get(
+//       `${process.env.NEXT_PUBLIC_DB_HOST}/tournaments/${id}`,
+//       {
+//         headers: {
+//           Authorization: process.env.NEXT_PUBLIC_DB_TOKEN,
+//         },
+//       }
+//     )
+//     const tournament = tournamentRes.data as Tournament
+//     const teams = tournament?.teams?.filter((team) => team.accepted) || []
+//     const games = tournament?.games || []
+
+//     const sortedGames =
+//       games?.sort((a, b) =>
+//         compareAsc(new Date(a.start_date), new Date(b.start_date))
+//       ) || []
+
+//     const sortedGamesWithParsedResults = sortedGames.map((game) => {
+//       return { ...game, result: JSON.parse(game.result as string) }
+//     })
+
+//     return {
+//       props: {
+//         tournament: tournament,
+//         teams: teams,
+//         games: sortedGamesWithParsedResults,
+//         // games_: games.data,
+//       },
+//     }
+//   } catch (error) {
+//     console.log(error)
+//     return {
+//       props: {
+//         tournament: null,
+//         teams_: null,
+//         games_: null,
+//       },
+//       revalidate: 10,
+//     }
+//   }
+// }
+
+//TEMPORARY
+export async function getServerSideProps(
+  context: GetServerSidePropsContext<{
     id: string
   }>
 ) {
   const id = context.params?.id
   try {
     const tournamentRes = await axios.get(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/tournaments/${id}`
+      `${process.env.NEXT_PUBLIC_DB_HOST}/tournaments/${id}`,
+      {
+        headers: {
+          Authorization: process.env.NEXT_PUBLIC_DB_TOKEN,
+        },
+      }
     )
     const tournament = tournamentRes.data as Tournament
     const teams = tournament?.teams?.filter((team) => team.accepted) || []
@@ -62,6 +131,7 @@ export async function getStaticProps(
         teams_: null,
         games_: null,
       },
+      revalidate: 10,
     }
   }
 }
@@ -73,9 +143,15 @@ interface Props {
 }
 
 export default function Tournaments({ tournament, teams, games }: Props) {
-  if (!tournament) {
-    return <p>Inget här</p>
-  }
+  const { data: session, status } = useSession()
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    const adminStatus = tournament.tournamentAdmins.find((admin) => {
+      return admin.user === session?.user.userId
+    })
+    setIsAdmin(adminStatus !== undefined || session?.user.isAdmin === true)
+  }, [session])
 
   const [showActiveGames, setShowActiveGames] = useState<boolean>(false)
   const [showPlayedGames, setShowPlayedGames] = useState<boolean>(false)
@@ -84,14 +160,24 @@ export default function Tournaments({ tournament, teams, games }: Props) {
   const activeGames = games.filter((game) => game.active)
   const playedGames = games.filter((game) => game.end_date)
   const upcomingGames = games.filter((game) => !game.active && !game.end_date)
-  const { data: session, status } = useSession()
+
+  if (!tournament) {
+    return <p>Inget här</p>
+  }
 
   return (
     <Container>
       <section>
-        <Button component={Link} href={`${tournament.id}/table`}>
-          Se tabell
-        </Button>
+        <Group>
+          <Button component={Link} href={`${tournament.id}/table`}>
+            Se tabell
+          </Button>
+          {isAdmin && (
+            <Button component={Link} href={`${tournament.id}/admin`}>
+              Admin
+            </Button>
+          )}
+        </Group>
         <h1>{tournament.name}</h1>
         {tournament.venue && <p>I {tournament.venue}</p>}
         <ul>
@@ -130,12 +216,13 @@ export default function Tournaments({ tournament, teams, games }: Props) {
             ))}
           </ul>
         ) : (
-          <p>Inga matcher</p>
+          <p>Inga lag</p>
         )}
       </section>
 
       <Button
         m="1rem"
+        color={showActiveGames ? 'green' : 'blue'}
         onClick={() => {
           setShowActiveGames((o: boolean) => !o)
           setShowUpcomingGames(() => false)
@@ -147,6 +234,7 @@ export default function Tournaments({ tournament, teams, games }: Props) {
 
       <Button
         m="1rem"
+        color={showUpcomingGames ? 'green' : 'blue'}
         onClick={() => {
           setShowUpcomingGames((o: boolean) => !o)
           setShowActiveGames(() => false)
@@ -158,6 +246,7 @@ export default function Tournaments({ tournament, teams, games }: Props) {
 
       <Button
         m="1rem"
+        color={showPlayedGames ? 'green' : 'blue'}
         onClick={() => {
           setShowPlayedGames((o: boolean) => !o)
           setShowUpcomingGames(() => false)

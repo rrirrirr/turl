@@ -60,7 +60,7 @@ export function GameCreator({
             </option>
           ))}
         </select>
-        <button>Spara</button>
+        <button>Skapa</button>
       </form>
     </>
   )

@@ -1,7 +1,5 @@
-import axios from 'axios'
 import { useState } from 'react'
 import Link from 'next/link'
-import { useSession } from 'next-auth/react'
 import { createScoreObject } from '../utils/utils'
 import { format } from 'date-fns'
 import { Box, Group, Button, Flex } from '@mantine/core'
@@ -9,16 +7,32 @@ import { useStyles } from '../styles/styles'
 
 export default function GameBox({ game }: { game: Game }) {
   const { classes } = useStyles()
-  const result_ = (game?.result as Result) || null
+
   const [result, setResult] = useState<Result>(
-    result_ || createScoreObject(game.teams)
+    typeof game.result === 'string'
+      ? JSON.parse(game.result)
+      : game.result
+      ? game.result
+      : game.teams?.length
+      ? createScoreObject(game?.teams)
+      : []
   )
+
+  // const result_ = (game?.result as Result) || null
+  // const [result, setResult] = useState<Result>(
+  // result_ || createScoreObject(game.teams as Team[])
+  // )
   const [update, setUpdate] = useState<boolean>(false)
 
   return (
     <Box>
       <div>
-        <span> {format(new Date(game.start_date), 'yyyy-MM-dd HH:mm')}</span>
+        <span>
+          {' '}
+          {game.start_date
+            ? format(new Date(game.start_date), 'yyyy-MM-dd HH:mm')
+            : 'Inget datum'}
+        </span>
       </div>
       <b>{game.name || ''}</b>
       <section>
@@ -45,12 +59,12 @@ export default function GameBox({ game }: { game: Game }) {
                     color="indigo"
                     radius="xs"
                   >
-                    {result[team.name].score}
+                    {result[team.name]?.score || 0}
                   </Button>
                   <Box
                     className={classes.gameRow}
                     component={Link}
-                    href={`/team/overview/${team.id}`}
+                    href={`/teamoverview/${team.id}`}
                   >
                     {team.name}
                   </Box>

@@ -1,3 +1,4 @@
+import { Box, Center, Container, Group } from '@mantine/core'
 import Link from 'next/link'
 
 export function TeamsList({
@@ -8,36 +9,36 @@ export function TeamsList({
   handleTeamAccept: (id: string, app: Application) => any
 }) {
   return (
-    <ul>
+    <Center>
       {teams.length ? (
-        <ul>
+        <Box>
           {teams.map((team) => (
-            <li key={team.id}>
-              <Link href={`/teamoverview/${team.id}`}>{team.name}</Link>
+            <Group spacing="sm" key={team.id}>
               {team.accepted === 'accepted' ? (
                 <button onClick={() => handleTeamAccept(team.id, 'declined')}>
                   Neka
                 </button>
               ) : team.accepted === 'waiting' ? (
-                <div>
+                <Group spacing="sm">
                   <button onClick={() => handleTeamAccept(team.id, 'accepted')}>
                     Anta
                   </button>
                   <button onClick={() => handleTeamAccept(team.id, 'declined')}>
                     Neka
                   </button>
-                </div>
+                </Group>
               ) : (
                 <button onClick={() => handleTeamAccept(team.id, 'accepted')}>
                   Anta
                 </button>
               )}
-            </li>
+              <Link href={`/teamoverview/${team.id}`}>{team.name}</Link>
+            </Group>
           ))}
-        </ul>
+        </Box>
       ) : (
-        <p>Inga lag</p>
+        <p>...</p>
       )}
-    </ul>
+    </Center>
   )
 }

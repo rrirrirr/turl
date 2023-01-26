@@ -14,6 +14,25 @@ import DatePicker from 'react-datepicker'
 
 import 'react-datepicker/dist/react-datepicker.css'
 import { GetServerSidePropsContext } from 'next'
+import {
+  AppShell,
+  Navbar,
+  Header,
+  Footer,
+  Aside,
+  Text,
+  MediaQuery,
+  Burger,
+  useMantineTheme,
+  Button,
+  Container,
+  Box,
+  Stack,
+  Group,
+  Code,
+  NumberInput,
+} from '@mantine/core'
+import { useStyles } from '../../../styles/styles'
 
 export async function getServerSideProps(
   context: GetServerSidePropsContext<{
@@ -28,34 +47,38 @@ export async function getServerSideProps(
 
   const tournamentId = context.params?.id
 
-  if (!session.user.isAdmin) {
-    return {
-      props: {
-        tournament: null,
-        invites_: null,
-        teams_: null,
-        games_: null,
-      },
-    }
-  }
-
   try {
     const tournamentRes = await axios.get(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/tournaments/${tournamentId}`
+      `${process.env.NEXT_PUBLIC_DB_HOST}/tournaments/${tournamentId}`,
+      {
+        headers: {
+          Authorization: process.env.NEXT_PUBLIC_DB_TOKEN,
+        },
+      }
     )
 
-    const tournament = tournamentRes.data
+    const tournament = tournamentRes.data as Tournament
     const invites = tournament.invites
     const games = tournament.games
     const teams = tournament.teams
-    // const sortedGames = sortGames(tournament.games, 'ASC')
+    const sortedGames = tournament.games?.length
+      ? sortGames(tournament.games, 'DESC')
+      : []
+
+    const isAdmin = tournament.tournamentAdmins.find((admin) => {
+      return admin.user === session?.user.userId
+    })
+
+    if (!isAdmin && !session.user.isAdmin) {
+      throw new Error('No permission')
+    }
 
     return {
       props: {
         tournament: tournament,
         invites_: invites,
         teams_: teams,
-        games_: games,
+        games_: sortedGames,
         // games_: games.data,
       },
     }
@@ -86,37 +109,38 @@ interface Props {
 }
 
 export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
-  if (!tournament) {
-    return <p>Inget här</p>
-  }
+  const { data: session, status } = useSession()
+  const theme = useMantineTheme()
+  const [opened, setOpened] = useState(false)
+  const { classes } = useStyles()
   const [invites, setInvites] = useState<Invite[]>(invites_)
   const [teams, setTeams] = useState<Team[]>(teams_)
   const [acceptedTeams, setAcceptedTeams] = useState<Team[]>([])
   const [declinedTeams, setDeclinedTeams] = useState<Team[]>([])
   const [waitingTeams, setWaitingTeams] = useState<Team[]>([])
-  const [schedule, setSchedule] = useState<Schedule | null>(null)
-  console.log(schedule)
   const [games, setGames] = useState<Game[]>(games_)
-  const { data: session, status } = useSession()
 
   const [showGames, setShowGames] = useState<boolean>(false)
   const [showInvites, setShowInvites] = useState<boolean>(false)
   const [showAcceptedTeams, setShowAcceptedTeams] = useState<boolean>(false)
   const [showDeclinedTeams, setShowDeclinedTeams] = useState<boolean>(false)
   const [showWaitingTeams, setShowWaitingTeams] = useState<boolean>(false)
+  const [schedule, setSchedule] = useState<Schedule | null>(null)
   const [showScheduler, setShowScheduler] = useState<boolean>(false)
+  const [groupingsSize, setGroupingsSize] = useState<number>(2)
 
   useEffect(() => {
-    setAcceptedTeams(teams.filter((team) => team.accepted === 'accepted'))
-    setDeclinedTeams(teams.filter((team) => team.accepted === 'declined'))
-    setWaitingTeams(teams.filter((team) => team.accepted === 'waiting'))
+    if (teams?.length) {
+      setAcceptedTeams(teams.filter((team) => team.accepted === 'accepted'))
+      setDeclinedTeams(teams.filter((team) => team.accepted === 'declined'))
+      setWaitingTeams(teams.filter((team) => team.accepted === 'waiting'))
+    }
   }, [teams])
 
   const createInvite =
     (unique: boolean) =>
     async (expiration: Date | null = null) => {
       console.log('invite')
-      console.log(expiration)
       setInvites([
         ...invites,
         {
@@ -134,6 +158,11 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
             unique: !tournament.open,
             expiration_date: expiration,
             name: tournament.name,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${session.user.accessToken}`,
+            },
           }
         )
         setInvites([
@@ -151,31 +180,30 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
       }
     }
 
-  async function handleCreateGame() {
-    setGames([
-      ...games,
-      {
-        id: 'new',
-        start_date: new Date(),
-        end_date: new Date(),
-        active: false,
-        game_type: tournament.game_type,
-        tournament: tournament.id,
-      },
-    ])
-    // try {
-    // const res = await axios.post(`${process.env.NEXT_PUBLIC_DB_HOST}/games`, {
-    //   tournament: tournament.id,
-    // })
-    // setGames([...games, res.data])
-    // } catch (error) {
-    //   console.log(error)
-    // }
+  const deleteGame = (id: string) => async () => {
+    try {
+      const res = await axios.delete(
+        `${process.env.NEXT_PUBLIC_DB_HOST}/games/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.user.accessToken}`,
+          },
+        }
+      )
+      setGames(games.filter((game) => game.id !== id))
+    } catch (error) {
+      console.log(error)
+    }
   }
 
   async function deleteInvite(id: string) {
     const res = await axios.delete(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/invites/${id}`
+      `${process.env.NEXT_PUBLIC_DB_HOST}/invites/${id}`,
+      {
+        headers: {
+          Authorization: `Bearer ${session?.user.accessToken}`,
+        },
+      }
     )
     setInvites(invites.filter((invite) => invite.id !== id))
   }
@@ -189,6 +217,11 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
         `${process.env.NEXT_PUBLIC_DB_HOST}/teams/${teamId}`,
         {
           accepted: change,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${session.user.accessToken}`,
+          },
         }
       )
       const patchedTeam = teamRes.data
@@ -218,6 +251,11 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
             tournament: tournamentId,
             teams: teamIds,
             start_date: startDate,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${session?.user.accessToken}`,
+            },
           }
         )
         // console.log({ ...res.data, teams })
@@ -266,15 +304,6 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
           start_date: game.start_date,
         })
       })
-      // const reqs = schedule.flatMap((group) =>
-      //   group.games.map((game) => {
-      //     return axios.post(`${process.env.NEXT_PUBLIC_DB_HOST}/games`, {
-      //       tournament: tournament.id,
-      //       teams: game.map((team) => team.id),
-      //       start_date: group.startDate,
-      //     })
-      //   })
-      // )
       Promise.all(reqs).then((res) => {
         const gamesToAdd = res.map((r) => r.data)
         console.log(gamesToAdd)
@@ -286,9 +315,33 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
   }
 
   return (
-    <section>
-      <>
-        <h1>{tournament.name}</h1>
+    <AppShell
+      padding="md"
+      navbar={
+        <Navbar width={{ base: 300 }} height={500} p="xs">
+          <Button
+            m="1rem"
+            color={showAcceptedTeams ? 'green' : 'blue'}
+            onClick={() => setShowAcceptedTeams(!showAcceptedTeams)}
+          >
+            Visa accpeterade lag
+          </Button>
+        </Navbar>
+      }
+      header={
+        <Header height={60} p="xs">
+          {/* Header content */}
+        </Header>
+      }
+      styles={(theme) => ({
+        main: {
+          backgroundColor:
+            theme.colorScheme === 'dark'
+              ? theme.colors.dark[8]
+              : theme.colors.gray[0],
+        },
+      })}
+    >
 
         {showAcceptedTeams ? (
           <>
@@ -311,196 +364,243 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
         )}
 
         {showWaitingTeams ? (
-          <>
-            <button onClick={() => setShowWaitingTeams(false)}>
-              Göm ansökande Lag
-            </button>
             <section>
               <TeamsList
                 teams={waitingTeams}
                 handleTeamAccept={handleTeamAccept}
               />
             </section>
-          </>
-        ) : (
-          <>
-            <button onClick={() => setShowWaitingTeams(true)}>
-              Visa ansökande Lag
-            </button>
-          </>
         )}
 
-        {showDeclinedTeams ? (
-          <>
-            <button onClick={() => setShowDeclinedTeams(false)}>
-              Göm nekade Lag
-            </button>
+        {showDeclinedTeams && (
             <section>
               <TeamsList
                 teams={declinedTeams}
                 handleTeamAccept={handleTeamAccept}
               />
             </section>
-          </>
-        ) : (
-          <>
-            <button onClick={() => setShowDeclinedTeams(true)}>
-              Visa nekade Lag
-            </button>
-          </>
         )}
 
-        {showInvites ? (
-          <>
-            <button onClick={() => setShowInvites(false)}>
-              Göm Inbjudningar
-            </button>
-            <section>
-              <div>
-                <Link href={`${tournament.id}/edit`}>Ändra</Link>
-              </div>
-              <h2>{tournament.open ? 'Öppen tävling' : 'Endast inbjudan'}</h2>
-              {!tournament.open ? (
-                <InviteCreator creator={createInvite(false)} />
-              ) : invites.length ? (
-                ''
-              ) : (
-                <InviteCreator creator={createInvite(true)} />
-              )}
-              {invites.length ? (
-                <ul>
-                  {invites.map((invitation) => (
-                    <li key={invitation.id}>
-                      {new Date(invitation.expiration_date || '') <
-                      new Date() ? (
-                        <p>
-                          Gick ut{' '}
-                          {format(
-                            new Date(invitation.expiration_date || ''),
-                            'yyyy-MM-dd HH:mm'
-                          )}
-                        </p>
-                      ) : (
-                        <b>
-                          Går ut:
-                          {format(
-                            new Date(invitation.expiration_date || ''),
-                            'yyyy-MM-dd HH:mm'
-                          )}
-                        </b>
-                      )}
-                      <Link href={`/invite/${invitation.code}`}>
-                        {invitation.code}
-                      </Link>{' '}
-                      -{' '}
-                      <b>
-                        {invitation.used
-                          ? 'Förbrukad inbjudan'
-                          : invitation.unique
-                          ? 'Inte använd'
-                          : 'Öppen inbjudan'}
-                      </b>
-                      {' - '}
-                      {session && (
-                        <button onClick={() => deleteInvite(invitation.id)}>
-                          Ta bort
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>...</p>
-              )}
-            </section>
-          </>
-        ) : (
-          <>
-            <button onClick={() => setShowInvites(true)}>
-              Visa Inbjudningar
-            </button>
-          </>
-        )}
 
-        {showGames ? (
-          <>
-            <button onClick={() => setShowGames(false)}>Göm Matcher</button>
-            <div>
-              <GameCreator teams={teams} addTeam={addTeam(tournament.id)} />
-            </div>
-            <section>
-              {games.length ? (
-                <ul>
-                  {games.map((game, i) => (
-                    <li key={game.id}>
-                      <Link href={`/game/${game.id}`}>Match: {i + 1}</Link>
-                      <GameBoxAdmin game={game} />
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>Inga matcher</p>
-              )}
-              <button onClick={() => handleCreateGame()}>Skapa Match</button>
-            </section>
-          </>
-        ) : (
-          <>
-            <button onClick={() => setShowGames(true)}>Visa Matcher</button>
-          </>
-        )}
 
-        {showScheduler ? (
-          <section>
-            <button onClick={() => setShowScheduler(false)}>
-              Göm Schemaläggare
-            </button>
-            {schedule ? (
-              <>
-                <h2>Schema</h2>
-                <ul>
-                  {schedule.map((group, i) => (
-                    <li key={`${group.startDate}${i}`}>
-                      <h3>Runda {i + 1}</h3>
-                      <DatePicker
-                        selected={group.startDate}
-                        onChange={(date: Date) => updateSchedule(date, i)}
-                        showTimeSelect
-                        dateFormat="Pp"
-                      />
-                      {group.games.map((game) => (
-                        <div key={`${game[0].id}+${game[1].id}`}>
-                          {game.map((team, i) => (
-                            <span key={team.id}>
-                              {team.name}
-                              {i < game.length - 1 && ' vs '}
-                            </span>
-                          ))}
-                        </div>
-                      ))}
-                    </li>
-                  ))}
-                </ul>
-                <button onClick={() => addSchedule()}>Skapa Schema</button>
-              </>
-            ) : (
-              <button
-                onClick={() =>
-                  setSchedule(generateRoundRobinSchedule(teams, 2))
-                }
-              >
-                Generera schema
-              </button>
-            )}
-          </section>
-        ) : (
-          <>
-            <button onClick={() => setShowScheduler(true)}>
-              Visa Schemaläggare
-            </button>
-          </>
-        )}
-      </>
-    </section>
+
+</AppShell>
   )
 }
+
+//         <h1>{tournament.name}</h1>
+
+//         {showAcceptedTeams ? (
+//           <>
+//             <button onClick={() => setShowAcceptedTeams(false)}>
+//               Göm accpeterade Lag
+//             </button>
+//             <section>
+//               <TeamsList
+//                 teams={acceptedTeams}
+//                 handleTeamAccept={handleTeamAccept}
+//               />
+//             </section>
+//           </>
+//         ) : (
+//           <>
+//             <button onClick={() => setShowAcceptedTeams(true)}>
+//               Visa accepterade Lag
+//             </button>
+//           </>
+//         )}
+
+//         {showWaitingTeams ? (
+//           <>
+//             <button onClick={() => setShowWaitingTeams(false)}>
+//               Göm ansökande Lag
+//             </button>
+//             <section>
+//               <TeamsList
+//                 teams={waitingTeams}
+//                 handleTeamAccept={handleTeamAccept}
+//               />
+//             </section>
+//           </>
+//         ) : (
+//           <>
+//             <button onClick={() => setShowWaitingTeams(true)}>
+//               Visa ansökande Lag
+//             </button>
+//           </>
+//         )}
+
+//         {showDeclinedTeams ? (
+//           <>
+//             <button onClick={() => setShowDeclinedTeams(false)}>
+//               Göm nekade Lag
+//             </button>
+//             <section>
+//               <TeamsList
+//                 teams={declinedTeams}
+//                 handleTeamAccept={handleTeamAccept}
+//               />
+//             </section>
+//           </>
+//         ) : (
+//           <>
+//             <button onClick={() => setShowDeclinedTeams(true)}>
+//               Visa nekade Lag
+//             </button>
+//           </>
+//         )}
+
+//         {showInvites ? (
+//           <>
+//             <button onClick={() => setShowInvites(false)}>
+//               Göm Inbjudningar
+//             </button>
+//             <section>
+//               <div>
+//                 <Link href={`${tournament.id}/edit`}>Ändra</Link>
+//               </div>
+//               <h2>{tournament.open ? 'Öppen tävling' : 'Endast inbjudan'}</h2>
+//               {!tournament.open ? (
+//                 <InviteCreator creator={createInvite(false)} />
+//               ) : invites.length ? (
+//                 ''
+//               ) : (
+//                 <InviteCreator creator={createInvite(true)} />
+//               )}
+//               {invites.length ? (
+//                 <ul>
+//                   {invites.map((invitation) => (
+//                     <li key={invitation.id}>
+//                       {new Date(invitation.expiration_date || '') <
+//                       new Date() ? (
+//                         <p>
+//                           Gick ut{' '}
+//                           {format(
+//                             new Date(invitation.expiration_date || ''),
+//                             'yyyy-MM-dd HH:mm'
+//                           )}
+//                         </p>
+//                       ) : (
+//                         <b>
+//                           Går ut:
+//                           {format(
+//                             new Date(invitation.expiration_date || ''),
+//                             'yyyy-MM-dd HH:mm'
+//                           )}
+//                         </b>
+//                       )}
+//                       <Link href={`/invite/${invitation.code}`}>
+//                         {invitation.code}
+//                       </Link>{' '}
+//                       -{' '}
+//                       <b>
+//                         {invitation.used
+//                           ? 'Förbrukad inbjudan'
+//                           : invitation.unique
+//                           ? 'Inte använd'
+//                           : 'Öppen inbjudan'}
+//                       </b>
+//                       {' - '}
+//                       {session && (
+//                         <button onClick={() => deleteInvite(invitation.id)}>
+//                           Ta bort
+//                         </button>
+//                       )}
+//                     </li>
+//                   ))}
+//                 </ul>
+//               ) : (
+//                 <p>...</p>
+//               )}
+//             </section>
+//           </>
+//         ) : (
+//           <>
+//             <button onClick={() => setShowInvites(true)}>
+//               Visa Inbjudningar
+//             </button>
+//           </>
+//         )}
+
+//         {showGames ? (
+//           <>
+//             <button onClick={() => setShowGames(false)}>Göm Matcher</button>
+//             <div>
+//               <GameCreator teams={teams} addTeam={addTeam(tournament.id)} />
+//             </div>
+//             <section>
+//               {games.length ? (
+//                 <ul>
+//                   {games.map((game, i) => (
+//                     <li key={game.id}>
+//                       <Link href={`/game/${game.id}`}>Match: {i + 1}</Link>
+//                       <GameBoxAdmin game={game} />
+//                     </li>
+//                   ))}
+//                 </ul>
+//               ) : (
+//                 <p>Inga matcher</p>
+//               )}
+//               <button onClick={() => handleCreateGame()}>Skapa Match</button>
+//             </section>
+//           </>
+//         ) : (
+//           <>
+//             <button onClick={() => setShowGames(true)}>Visa Matcher</button>
+//           </>
+//         )}
+
+//         {showScheduler ? (
+//           <section>
+//             <button onClick={() => setShowScheduler(false)}>
+//               Göm Schemaläggare
+//             </button>
+//             {schedule ? (
+//               <>
+//                 <h2>Schema</h2>
+//                 <ul>
+//                   {schedule.map((group, i) => (
+//                     <li key={`${group.startDate}${i}`}>
+//                       <h3>Runda {i + 1}</h3>
+//                       <DatePicker
+//                         selected={group.startDate}
+//                         onChange={(date: Date) => updateSchedule(date, i)}
+//                         showTimeSelect
+//                         dateFormat="Pp"
+//                       />
+//                       {group.games.map((game) => (
+//                         <div key={`${game[0].id}+${game[1].id}`}>
+//                           {game.map((team, i) => (
+//                             <span key={team.id}>
+//                               {team.name}
+//                               {i < game.length - 1 && ' vs '}
+//                             </span>
+//                           ))}
+//                         </div>
+//                       ))}
+//                     </li>
+//                   ))}
+//                 </ul>
+//                 <button onClick={() => addSchedule()}>Skapa Schema</button>
+//               </>
+//             ) : (
+//               <button
+//                 onClick={() =>
+//                   setSchedule(generateRoundRobinSchedule(teams, 2))
+//                 }
+//               >
+//                 Generera schema
+//               </button>
+//             )}
+//           </section>
+//         ) : (
+//           <>
+//             <button onClick={() => setShowScheduler(true)}>
+//               Visa Schemaläggare
+//             </button>
+//           </>
+//         )}
+//       </>
+//     </section>
+//   )
+// }

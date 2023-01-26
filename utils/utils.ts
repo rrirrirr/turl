@@ -8,12 +8,8 @@ export function createScoreObject(teams: Team[]): Result {
 
 export function sortGames(games: Game[], order: 'ASC' | 'DESC') {
   return order === 'ASC'
-    ? games.sort((a, b) =>
-        compareAsc(new Date(a.start_date || ''), new Date(b.start_date || ''))
-      )
-    : games.sort((a, b) =>
-        compareDesc(new Date(b.start_date || ''), new Date(a.start_date || ''))
-      )
+    ? games.sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
+    : games.sort((a, b) => new Date(b.start_date) - new Date(a.start_date))
 }
 
 type TeamTournamentResults = {

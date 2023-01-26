@@ -10,6 +10,7 @@ import { GetServerSidePropsContext } from 'next'
 import { User } from '../../types/user'
 import { Center, Accordion, List, Box, Container, Stack } from '@mantine/core'
 import { useStyles } from '../../styles/styles'
+import GamesList from '../../components/gamesList'
 
 export async function getServerSideProps(
   context: GetServerSidePropsContext<{
@@ -35,14 +36,20 @@ export async function getServerSideProps(
 
   try {
     const userRes = await axios.get(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/users/${session.user.username}` //populate
+      `${process.env.NEXT_PUBLIC_DB_HOST}/users/${session.user.username}`,
+      {
+        headers: {
+          Authorization: process.env.NEXT_PUBLIC_DB_TOKEN,
+        },
+      }
     )
 
     const user = userRes.data as User
     const teams = user?.teams || []
 
     const tournaments = teams.length ? teams.map((team) => team.tournament) : []
-    const games = teams.length ? teams.map((team) => team.games)[0] : []
+    // const games = teams.games
+    const games = teams.length ? teams.map((team) => team.games || []) : []
 
     return {
       props: {
@@ -65,7 +72,6 @@ export async function getServerSideProps(
   }
 }
 
-//Maybe shouldn't populate
 type TeamWithPopulatedTournament = Omit<Team, 'tournament'> & {
   tournament: Tournament
 }
@@ -78,7 +84,7 @@ interface Props {
   user: User
   tournaments: Tournament[]
   teams: TeamWithPopulatedTournament[]
-  games: GameWithPopulatedTournament[]
+  games: GameWithPopulatedTournament[][]
 }
 
 export default function Tournaments({
@@ -87,10 +93,12 @@ export default function Tournaments({
   teams,
   games,
 }: Props) {
+  const { classes } = useStyles()
+
+  console.log(games)
   if (!user) {
     return <p>Inget här</p>
   }
-  const { classes } = useStyles()
 
   return (
     <Container>
@@ -100,10 +108,10 @@ export default function Tournaments({
             <h1>{user.first_name}</h1>
           </Container>
           <Center>
-            <h2>Spelade Tävlingar</h2>
+            <h2>Dina Tävlingar</h2>
           </Center>
           {tournaments.length ? (
-            tournaments.map((tournament) => (
+            tournaments.map((tournament, i) => (
               <Box key={tournament.id} className={classes.container} p="0">
                 <Box
                   className={classes.titleBox}
@@ -122,15 +130,7 @@ export default function Tournaments({
                 </b>
                 <h4>Matcher</h4>
                 <Container>
-                  {games.length
-                    ? games
-                        .filter((game) => game.tournament.id === tournament.id)
-                        .map((game) => (
-                          <List.Item key={game.id}>
-                            <GameBox game={game} />
-                          </List.Item>
-                        ))
-                    : 'Inga matcher'}
+                  {games[i].length ? <GamesList games={games[i]} /> : '...'}
                 </Container>
               </Box>
             ))

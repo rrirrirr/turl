@@ -21,7 +21,12 @@ export async function getServerSideProps(
 
   try {
     const tournamentRes = await axios.get(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/tournaments/${id}` //populate
+      `${process.env.NEXT_PUBLIC_DB_HOST}/tournaments/${id}`,
+      {
+        headers: {
+          Authorization: process.env.NEXT_PUBLIC_DB_TOKEN,
+        },
+      }
     )
     const tournament = tournamentRes.data as Tournament
     let games = tournament.games || []

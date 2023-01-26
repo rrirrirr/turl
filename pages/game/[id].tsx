@@ -14,7 +14,12 @@ export const getServerSideProps: GetServerSideProps = async (
   const id = context.params?.id
   try {
     const res = await axios.get(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/games/${id}`
+      `${process.env.NEXT_PUBLIC_DB_HOST}/games/${id}`,
+      {
+        headers: {
+          Authorization: process.env.NEXT_PUBLIC_DB_TOKEN,
+        },
+      }
     )
     const game = res.data
     const teams = game?.teams || []
@@ -54,11 +59,11 @@ export default function Tournaments({
   game,
   result_,
 }: Props) {
+  const [result, setResult] = useState(result_)
+
   if (!game) {
     return <p>Inget här</p>
   }
-
-  const [result, setResult] = useState(result_)
 
   return (
     <>
@@ -67,7 +72,7 @@ export default function Tournaments({
         {teams?.length
           ? teams.map((team, i) => (
               <span key={team.id}>
-                <Link href={`/team/overview/${team.id}`}>
+                <Link href={`/teamoverview/${team.id}`}>
                   <h3>{team.name}</h3>{' '}
                 </Link>
 

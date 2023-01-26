@@ -1,0 +1,385 @@
+   1   │ import axios from 'axios'
+   2   │ import { useEffect, useState } from 're
+       │ act'
+   3   │ import Link from 'next/link'
+   4   │ import { useSession } from 'next-auth/r
+       │ eact'
+   5   │ import { unstable_getServerSession } fr
+       │ om 'next-auth'
+   6   │ import { authOptions } from '../../api/
+       │ auth/[...nextauth]'
+   7   │ import { GameCreator } from '../../../c
+       │ omponents/gameCreator'
+   8   │ import GameBoxAdmin from '../../../comp
+       │ onents/gameBoxAdmin'
+   9   │ import { compareAsc, format } from 'dat
+       │ e-fns'
+  10   │ import { TeamsList } from '../../../com
+       │ ponents/teamsList'
+  11   │ import { InviteCreator } from '../../..
+       │ /components/inviteCreator'
+  12   │ import { generateRoundRobinSchedule, so
+       │ rtGames } from '../../../utils/utils'
+  13   │ import DatePicker from 'react-datepicke
+       │ r'
+  14   │
+  15   │ import 'react-datepicker/dist/react-dat
+       │ epicker.css'
+  16   │ import { GetServerSidePropsContext } fr
+       │ om 'next'
+  17 + │ import {
+  18 + │   AppShell,
+  19 + │   Navbar,
+  20 + │   Header,
+  21 + │   Footer,
+  22 + │   Aside,
+  23 + │   Text,
+  24 + │   MediaQuery,
+  25 + │   Burger,
+  26 + │   useMantineTheme,
+  27 + │   Button,
+  28 + │   Container,
+  29 + │   Box,
+ 30 + │   Stack,
+  31 + │   Group,
+  32 + │   Code,
+  33 + │   NumberInput,
+  34 + │ } from '@mantine/core'
+  35 + │ import { useStyles } from '../../../sty
+       │ les/styles'
+  36   │
+  37   │ export async function getServerSideProp
+       │ s(
+  38   │   context: GetServerSidePropsContext<{
+  39   │     id: string
+  40   │   }>
+  41   │ ) {
+  42   │   const session = await unstable_getSer
+       │ verSession(
+  43   │     context.req,
+  44   │     context.res,
+  45   │     authOptions
+  46   │   )
+  47   │
+  48   │   const tournamentId = context.params?.
+:
+  50   │   try {
+  51   │     const tournamentRes = await axios.g
+       │ et(
+  52 ~ │       `${process.env.NEXT_PUBLIC_DB_HOS
+       │ T}/tournaments/${tournamentId}`,
+  53 ~ │       {
+  54 ~ │         headers: {
+  55 ~ │           Authorization: process.env.NE
+       │ XT_PUBLIC_DB_TOKEN,
+  56 ~ │         },
+  57 ~ │       }
+  58   │     )
+  59   │
+  60 ~ │     const tournament = tournamentRes.da
+       │ ta as Tournament
+  61   │     const invites = tournament.invites
+  62   │     const games = tournament.games
+  63   │     const teams = tournament.teams
+  64 ~ │     const sortedGames = sortGames(tourn
+       │ ament.games, 'DESC')
+  65 ~ │
+  66 ~ │     const isAdmin = tournament.tourname
+       │ ntAdmins.find((admin) => {
+  67 ~ │       return admin.user === session?.us
+       │ er.userId
+  68 ~ │     })
+  69 ~ │
+  70 ~ │     if (!isAdmin && !session.user.isAdm
+       │ in) {
+  71 ~ │       throw new Error('No permission')
+  72 ~ │     }
+  73   │
+  74   │     return {
+  75   │       props: {
+  76   │         tournament: tournament,
+  77   │         invites_: invites,
+  78   │         teams_: teams,
+:        games_: sortedGames,
+  80   │         // games_: games.data,
+  81   │       },
+  82   │     }
+  83   │   } catch (error) {
+  84   │     console.log(error)
+  85   │     return {
+  86   │       props: {
+  87   │         tournament: null,
+  88   │         invites_: null,
+  89   │         teams_: null,
+  90   │         games_: null,
+  91   │       },
+  92   │     }
+  93   │   }
+  94   │ }
+  95   │ type TournamentInfo = {
+  96   │   tournament: Tournament
+  97   │   invites_: Invite[]
+  98   │   teams_: Team[]
+  99   │   games_: Game[]
+ 100   │ }
+ 101   │
+ 102   │ interface Props {
+ 103   │   tournament: Tournament
+ 104   │   invites_: Invite[]
+ 105   │   teams_: Team[]
+ 106   │   games_: Game[]
+ 107   │ }
+ 108   │
+ 109   │ export default function Admin({ tournam
+       │ ent, invites_, teams_, games_ }: Props)
+       │  {
+ 110 ~ │   const { data: session, status } = use
+       │ Session()
+ 111 ~ │   const theme = useMantineTheme()
+ 112 ~ │   const [opened, setOpened] = useState(
+       │ false)
+ 113 ~ │   const { classes } = useStyles()
+:
+ 115   │   const [invites, setInvites] = useStat
+       │ e<Invite[]>(invites_)
+ 116   │   const [teams, setTeams] = useState<Te
+       │ am[]>(teams_)
+ 117   │   const [acceptedTeams, setAcceptedTeam
+       │ s] = useState<Team[]>([])
+ 118   │   const [declinedTeams, setDeclinedTeam
+       │ s] = useState<Team[]>([])
+ 119 _ │   const [waitingTeams, setWaitingTeams]
+       │  = useState<Team[]>([])
+ 120 _ │   const [games, setGames] = useState<Ga
+       │ me[]>(games_)
+ 121   │
+ 122   │   const [showGames, setShowGames] = use
+       │ State<boolean>(false)
+ 123   │   const [showInvites, setShowInvites] =
+       │  useState<boolean>(false)
+ 124   │   const [showAcceptedTeams, setShowAcce
+       │ ptedTeams] = useState<boolean>(false)
+ 125   │   const [showDeclinedTeams, setShowDecl
+       │ inedTeams] = useState<boolean>(false)
+ 126   │   const [showWaitingTeams, setShowWaiti
+       │ ngTeams] = useState<boolean>(false)
+ 127 + │   const [schedule, setSchedule] = useSt
+       │ ate<Schedule | null>(null)
+ 128   │   const [showScheduler, setShowSchedule
+       │ r] = useState<boolean>(false)
+ 129 + │   const [groupingsSize, setGroupingsSiz
+       │ e] = useState<number>(2)
+ 130   │
+ 131   │   useEffect(() => {
+ 132 ~ │     if (teams?.length) {
+ 133 ~ │       setAcceptedTeams(teams.filter((te
+       │ am) => team.accepted === 'accepted'))
+ 134 ~ │       setDeclinedTeams(teams.filter((te
+       │ am) => team.accepted === 'declined'))
+ 135 ~ │       setWaitingTeams(teams.filter((tea
+       │ m) => team.accepted === 'waiting'))
+ 136 ~ │     }
+ 137   │   }, [teams])
+:
+ 139   │   const createInvite =
+ 140   │     (unique: boolean) =>
+ 141   │     async (expiration: Date | null = nu
+       │ ll) => {
+ 142 _ │       console.log('invite')
+ 143   │       setInvites([
+ 144   │         ...invites,
+ 145   │         {
+ 146   │           id: 'new',
+ 147   │           code: '...',
+ 148   │           unique: !tournament.open,
+ 149   │           expiration_date: expiration |
+       │ | new Date(),
+ 150   │         },
+ 151   │       ])
+ 152   │       try {
+ 153   │         const res = await axios.post(
+:54   │           `${process.env.NEXT_PUBLIC_DB
+       │ _HOST}/invites`,
+ 155   │           {
+ 156   │             tournament: tournament.id,
+ 157   │             unique: !tournament.open,
+ 158   │             expiration_date: expiration
+       │ ,
+ 159   │             name: tournament.name,
+ 160 + │           },
+ 161 + │           {
+ 162 + │             headers: {
+ 163 + │               Authorization: `Bearer ${
+       │ session.user.accessToken}`,
+ 164 + │             },
+ 165   │           }
+ 166   │         )
+ 167   │         setInvites([
+ 168   │           ...invites,
+ 169   │           {
+ 170   │             id: res.data.id,
+ 171   │             code: res.data.code,
+ 172   │             unique: res.data.unique,
+ 173   │             expiration_date: res.data.e
+       │ xpiration_date,
+ 174   │           },
+ 175   │         ])
+ 176   │       } catch (error) {
+ 177   │         console.log(error)
+ 178   │         setInvites(invites.filter((invi
+       │ te) => invite.id !== 'new'))
+ 179   │       }
+ 180   │     }
+ 181   │
+ 182 ~ │   const deleteGame = (id: string) => as
+       │ ync () => {
+ 183 ~ │     try {
+ 184 ~ │       const res = await axios.delete(
+ 185 ~ │         `${process.env.NEXT_PUBLIC_DB_H
+       │ OST}/games/${id}`,
+ 186 ~ │         {
+ 187 ~ │           headers: {
+ 188 ~ │             Authorization: `Bearer ${se
+       │ ssion?.user.accessToken}`,
+:9 ~ │           },
+ 190 ~ │         }
+ 191 ~ │       )
+ 192 ~ │       setGames(games.filter((game) => g
+       │ ame.id !== id))
+ 193 ~ │     } catch (error) {
+ 194 ~ │       console.log(error)
+ 195 ~ │     }
+ 196   │   }
+ 197   │
+ 198   │   async function deleteInvite(id: strin
+       │ g) {
+ 199   │     const res = await axios.delete(
+ 200 ~ │       `${process.env.NEXT_PUBLIC_DB_HOS
+       │ T}/invites/${id}`,
+ 201 ~ │       {
+ 202 ~ │         headers: {
+ 203 ~ │           Authorization: `Bearer ${sess
+       │ ion?.user.accessToken}`,
+ 204 ~ │         },
+ 205 ~ │       }
+ 206   │     )
+ 207   │     setInvites(invites.filter((invite)
+       │ => invite.id !== id))
+ 208   │   }
+ 209   │
+ 210   │   async function handleTeamAccept(
+ 211   │     teamId: string,
+ 212   │     change: Application
+ 213   │   ): Promise<void> {
+ 214   │     try {
+ 215   │       const teamRes = await axios.patch
+       │ (
+ 216   │         `${process.env.NEXT_PUBLIC_DB_H
+       │ OST}/teams/${teamId}`,
+ 217   │         {
+ 218   │           accepted: change,
+ 219 + │         },
+ 220 + │         {
+ 221 + │           headers: {
+ 222 + │             Authorization: `Bearer ${se
+:ssion?.user.accessToken}`,
+ 223 + │           },
+ 224   │         }
+ 225   │       )
+ 226   │       const patchedTeam = teamRes.data
+ 227   │       setTeams(
+ 228   │         teams.map((team) => {
+ 229   │           return team.id === patchedTea
+       │ m.id ? patchedTeam : team
+ 230   │         })
+ 231   │       )
+ 232   │     } catch (error) {
+ 233   │       console.log(error)
+ 234   │     }
+ 235   │   }
+ 236   │
+ 237   │   const addTeam =
+ 238   │     (tournamentId: string) =>
+ 239   │     async ({
+ 240   │       startDate,
+ 241   │       teamIds,
+ 242   │     }: {
+ 243   │       startDate: Date
+ 244   │       teamIds: string[]
+ 245   │     }): Promise<void> => {
+ 246   │       try {
+ 247   │         const res = await axios.post(
+ 248   │           `${process.env.NEXT_PUBLIC_DB
+       │ _HOST}/games`,
+ 249   │           {
+ 250   │             tournament: tournamentId,
+ 251   │             teams: teamIds,
+ 252   │             start_date: startDate,
+ 253 + │           },
+:254 + │           {
+ 255 + │             headers: {
+ 256 + │               Authorization: `Bearer ${
+       │ session?.user.accessToken}`,
+ 257 + │             },
+ 258   │           }
+ 259   │         )
+ 260   │         // console.log({ ...res.data, t
+       │ eams })
+ 261   │         const addedTeams = teamIds.map(
+       │ (id) =>
+ 262   │           teams.find((team) => team.id
+       │ === id)
+ 263   │         )
+ 264   │
+ 265   │         setGames(
+ 266   │           [...games, { ...res.data, tea
+       │ ms: addedTeams }].sort((a, b) =>
+ 267   │             compareAsc(new Date(a.start
+       │ _date), new Date(b.start_date))
+ 268   │           )
+ 269   │         )
+ 270   │       } catch (error) {
+ 271   │         console.log(error)
+ 272   │       }
+ 273   │     }
+ 274   │
+ 275   │   function updateSchedule(date: Date, i
+       │ : number): void {
+ 276   │     setSchedule(
+:  │       schedule?.map((group, j) => {
+ 278   │         return i === j ? { ...group, st
+       │ artDate: date } : group
+ 279   │       }) || []
+ 280   │     )
+ 281   │   }
+ 282   │
+ 283   │   async function addSchedule(): Promise
+       │ <void> {
+ 284   │     try {
+ 285   │       const flatGames =
+ 286   │         schedule?.flatMap((group) =>
+ 287   │           group.games.map((game) => {
+ 288   │             return {
+ 289   │               tournament: tournament.id
+       │ ,
+ 290   │               teams: game,
+ 291   │               start_date: group.startDa
+       │ te,
+ 292   │               id: '' + Math.random().to
+       │ String(16).slice(2),
+ 293   │               active: false,
+ 294   │               game_type: tournament.gam
+       │ e_type,
+ 295   │             }
+ 296   │           })
+ 297   │         ) || ([] as Game[])
+ 298   │
+ 299   │       const reqs = flatGames.map((game)
+       │  => {
+ 300 ~ │         return axios.post(
+ 301 ~ │           `${process.env.NEXT_PUBLIC_DB
+       │ _HOST}/games`
+
+
+
+

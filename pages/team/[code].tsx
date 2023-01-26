@@ -7,6 +7,19 @@ import { unstable_getServerSession } from 'next-auth'
 import { authOptions } from '../api/auth/[...nextauth]'
 import { GetServerSidePropsContext } from 'next'
 import { User } from '../../types/user'
+import {
+  Box,
+  Button,
+  Center,
+  Container,
+  Flex,
+  Group,
+  Stack,
+  TextInput,
+} from '@mantine/core'
+import { ButtonGroup } from '@mantine/core/lib/Button/ButtonGroup/ButtonGroup'
+import { useStyles } from '../../styles/styles'
+
 // export async function getStaticPaths() {
 //   const res = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/invitations`)
 //   const invites = res.data
@@ -14,20 +27,19 @@ import { User } from '../../types/user'
 //   const paths = invites.map((invite) => ({
 //     params: { code: invite.code },
 //   }))
-//   return { paths, fallback: false }
+//   return { paths, fallback: 'blocking' }
 // }
 
 // export async function getStaticProps({ params }) {
 //   const res = await axios.get(
 //     `${process.env.NEXT_PUBLIC_DB_HOST}/invitations/${params.code}`
 //   )
-//   return { props: { data: res.data } }
+//   return { props: { data: res.data },       revalidate: 10 }
 // }
-
-///Could be static?
 
 type TeamUser = User & { inTeam: boolean }
 
+//Temporary
 export async function getServerSideProps(
   context: GetServerSidePropsContext<{
     code: string
@@ -42,10 +54,16 @@ export async function getServerSideProps(
   )
 
   let user = null
+
   if (session) {
     try {
       const userRes = await axios.get(
-        `${process.env.NEXT_PUBLIC_DB_HOST}/users/${session.user.username}` //populate
+        `${process.env.NEXT_PUBLIC_DB_HOST}/users/${session.user.username}`, //populate
+        {
+          headers: {
+            Authorization: process.env.NEXT_PUBLIC_DB_TOKEN,
+          },
+        }
       )
       user = userRes.data as User
     } catch (error) {
@@ -55,10 +73,15 @@ export async function getServerSideProps(
 
   try {
     const res = await axios.get(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/teams?team_code=${code}`
+      `${process.env.NEXT_PUBLIC_DB_HOST}/teams?team_code=${code}`,
+      {
+        headers: {
+          Authorization: process.env.NEXT_PUBLIC_DB_TOKEN,
+        },
+      }
     )
 
-    const team = res.data[0] as Team
+    const team = res.data as Team
 
     if (user) {
       user.inTeam = user.teams.find((team): boolean => team.team_code === code)
@@ -70,6 +93,7 @@ export async function getServerSideProps(
       props: {
         currentUser: user,
         team: team,
+        // tournament: null,
         tournament: team.tournament,
         players_: team.player,
       },
@@ -95,6 +119,7 @@ export default function Team({
   const router = useRouter()
   const [players, setPlayers] = useState(players_)
   const [user, setUser] = useState(currentUser)
+  const { classes } = useStyles()
 
   if (!team) {
     return <>Hittade inget</>
@@ -134,45 +159,69 @@ export default function Team({
   }
 
   return (
-    <main className={styles.main}>
-      <h1>TEAM {team.name}</h1>
-      {user && user.inTeam ? (
-        <p>Ditt lag</p>
-      ) : (
-        <button onClick={() => handleJoin(team.team_code)}>Gå med i lag</button>
-      )}
-      <h2>{team.accepted ? 'antagen' : 'inte antagen'}</h2>
-      <Link href={`/tournaments/${tournament.id}`}>
-        <h3>turnering: {tournament.name}</h3>
-      </Link>
-      <section>
-        <Link href={`${team.team_code}/info`} className={styles.navLink}>
-          Info
-        </Link>
-        <Link href={`${team.team_code}/games`} className={styles.navLink}>
-          Matcher
-        </Link>
-      </section>
-      <section>
-        <form onSubmit={handlePlayerAdd}>
-          <label htmlFor="firstName">Fönamn:</label>
-          <input type="text" id="firstName" name="firstName" required />
-
-          <label htmlFor="lastName">Efternamn:</label>
-          <input type="text" id="lastName" name="lastName" required />
-          <button type="submit">Spara</button>
-        </form>
-
-        <ul>
-          {players.length ? (
-            players.map((player) => (
-              <li key={player.id}>{player.first_name}</li>
-            ))
+    <Container>
+      <Box className={classes.container} p="0">
+        <Box className={classes.titleBox}>
+          {' '}
+          <h1>TEAM {team.name}</h1>
+        </Box>
+        <Stack spacing="xs">
+          {user && user.inTeam ? (
+            <p>Ditt lag</p>
           ) : (
-            <li>Inga spelare</li>
+            <Button onClick={() => handleJoin(team.team_code)}>
+              Gå med i lag
+            </Button>
           )}
-        </ul>
-      </section>
-    </main>
+          <h2>
+            {team.accepted === 'accepted'
+              ? 'antagen'
+              : team.accepted === 'declined'
+              ? 'Nekad'
+              : 'Väntar på svar'}
+          </h2>
+          <Link href={`/tournaments/${tournament.id}`}>
+            <h3>turnering: {tournament.name}</h3>
+          </Link>
+          <Center>
+            <Group>
+              <Button
+                component={Link}
+                href={`${team.team_code}/info`}
+                className={styles.navLink}
+              >
+                Info
+              </Button>
+              <Button
+                component={Link}
+                href={`${team.team_code}/games`}
+                className={styles.navLink}
+              >
+                Matcher
+              </Button>
+            </Group>
+          </Center>
+          <Box className={classes.container} p="0">
+            <Box className={classes.titleBox}>Spelare</Box>
+
+            <Center>
+              <Stack spacing="xs">
+                {players.length ? (
+                  players.map((player) => (
+                    <Group m="0.1rem" key={player.id}>
+                      <span>
+                        {player.first_name} {player.last_name}
+                      </span>
+                    </Group>
+                  ))
+                ) : (
+                  <Box>Inga spelare</Box>
+                )}
+              </Stack>
+            </Center>
+          </Box>
+        </Stack>
+      </Box>
+    </Container>
   )
 }

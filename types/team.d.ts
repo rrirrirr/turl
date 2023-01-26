@@ -6,4 +6,5 @@ type Team = {
   team_code?: string
   accepted: boolean | string
   player?: Player[]
+  games?: Game[]
 }

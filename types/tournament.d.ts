@@ -10,6 +10,8 @@ type Tournament = {
   venue?: string
   open: boolean
   game_type: string
+  tournamentAdmins: { id: string; user: string; tournament: string }[]
   games?: Game[]
   teams?: Team[]
+  invites?: Invite[]
 }

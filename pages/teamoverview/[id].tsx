@@ -1,18 +1,20 @@
 import axios from 'axios'
-import { useRouter } from 'next/router'
-import styles from 'styles/Home.module.css'
-import Link from 'next/link'
-import { useState } from 'react'
 import { GetStaticPropsContext } from 'next'
+import { Box, Center, Container, Flex, Stack } from '@mantine/core'
+import { useStyles } from '../../styles/styles'
 
 export async function getStaticPaths() {
-  const teamsRes = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/teams`)
+  const teamsRes = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/teams`, {
+    headers: {
+      Authorization: process.env.NEXT_PUBLIC_DB_TOKEN,
+    },
+  })
   const teams = teamsRes.data as Team[]
 
   const paths = teams.map((team) => ({
     params: { id: team.id },
   }))
-  return { paths, fallback: false }
+  return { paths, fallback: 'blocking' }
 }
 
 export async function getStaticProps(
@@ -24,7 +26,12 @@ export async function getStaticProps(
 
   try {
     const teamRes = await axios.get(
-      `${process.env.NEXT_PUBLIC_DB_HOST}/teams/${id}`
+      `${process.env.NEXT_PUBLIC_DB_HOST}/teams/${id}`,
+      {
+        headers: {
+          Authorization: process.env.NEXT_PUBLIC_DB_TOKEN,
+        },
+      }
     )
     const team = teamRes.data
 
@@ -33,61 +40,53 @@ export async function getStaticProps(
         team: team,
         players: team.player || [],
       },
+      revalidate: 10,
     }
   } catch (error) {
     console.log(error)
-    return { props: { team: null, players: [] } }
+    return { props: { team: null, players: [] }, revalidate: 10 }
   }
 }
 
-// export async function getServerSideProps(context) {
-//   const id = context.params.id
-
-//   try {
-//     const teamRes = await axios.get(
-//       `${process.env.NEXT_PUBLIC_DB_HOST}/teams/${id}`
-//     )
-//     const team = teamRes.data
-
-//     return {
-//       props: {
-//         team: team,
-//         players: team.player || [],
-//       },
-//     }
-//   } catch (error) {
-//     console.log(error)
-//     return { props: { team: null, players: [] } }
-//   }
-// }
 interface Props {
   team: Team
   players: Player[]
 }
 
 export default function Team({ team, players }: Props) {
+  const { classes } = useStyles()
+
   if (!team) {
     return <div>Inget här</div>
   }
+
   return (
-    <main className={styles.main}>
-      <h1>TEAM {team.name}</h1>
-      <section>
-        {players.length ? (
-          <>
-            <h2>Spelare</h2>
-            <ul>
+    <Container>
+      <Flex
+        mih={50}
+        gap="1rem"
+        justify="flex-start"
+        align="flex-start"
+        direction="column"
+      >
+        <h1>{team.name}</h1>
+        <Box className={classes.container} p="0">
+          {players.length ? (
+            <>
+              <Box className={classes.titleBox}>
+                <h4>Spelare</h4>
+              </Box>
               {players.map((player) => (
-                <li key={player.id}>
+                <Box key={player.id} p="0.1rem" m="0.5rem">
                   {player.first_name} {player.last_name}
-                </li>
+                </Box>
               ))}
-            </ul>
-          </>
-        ) : (
-          <p>Inga spelare</p>
-        )}
-      </section>
-    </main>
+            </>
+          ) : (
+            <p>Inga spelare</p>
+          )}
+        </Box>
+      </Flex>
+    </Container>
   )
 }
