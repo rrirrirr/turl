@@ -175,10 +175,10 @@ export default function Team({
           )}
           <h2>
             {team.accepted === 'accepted'
-              ? 'antagen'
+              ? 'Antagen'
               : team.accepted === 'declined'
               ? 'Nekad'
-              : 'Väntar på svar'}
+              : 'Väntar på svar om antagning'}
           </h2>
           <Link href={`/tournaments/${tournament.id}`}>
             <h3>turnering: {tournament.name}</h3>

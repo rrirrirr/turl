@@ -199,7 +199,7 @@ export default function Tournaments({ tournament, teams, games }: Props) {
           </li>
           <li>
             {tournament.min_num_players_in_team
-              ? `Minst ${tournament.min_num_players_in_team} per lag`
+              ? `Minst ${tournament.min_num_players_in_team} spelare per lag`
               : 'Obegränsat antal spelare i lag'}
           </li>
         </ul>

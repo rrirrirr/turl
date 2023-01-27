@@ -31,8 +31,12 @@ import {
   Group,
   Code,
   NumberInput,
+  Center,
+  BackgroundImage,
+  Flex,
 } from '@mantine/core'
 import { useStyles } from '../../../styles/styles'
+import { groupEnd } from 'console'
 
 export async function getServerSideProps(
   context: GetServerSidePropsContext<{
@@ -263,11 +267,7 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
           teams.find((team) => team.id === id)
         )
 
-        setGames(
-          [...games, { ...res.data, teams: addedTeams }].sort((a, b) =>
-            compareAsc(new Date(a.start_date), new Date(b.start_date))
-          )
-        )
+        setGames([{ ...res.data, teams: addedTeams }, ...games])
       } catch (error) {
         console.log(error)
       }
@@ -307,8 +307,10 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
       Promise.all(reqs).then((res) => {
         const gamesToAdd = res.map((r) => r.data)
         console.log(gamesToAdd)
+        setGames([...flatGames, ...games])
+        setShowGames(true)
+        setShowScheduler(false)
       })
-      setGames([...games, ...flatGames])
     } catch (error) {
       console.log(error)
     }
@@ -317,21 +319,73 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
   return (
     <AppShell
       padding="md"
+      navbarOffsetBreakpoint="sm"
       navbar={
-        <Navbar width={{ base: 300 }} height={500} p="xs">
-          <Button
-            m="1rem"
-            color={showAcceptedTeams ? 'green' : 'blue'}
-            onClick={() => setShowAcceptedTeams(!showAcceptedTeams)}
-          >
-            Visa accpeterade lag
-          </Button>
+        <Navbar
+          p="md"
+          hiddenBreakpoint="sm"
+          hidden={!opened}
+          width={{ sm: 200, lg: 300 }}
+        >
+          <Navbar.Section>
+            <Link href={`/tournaments/${tournament.id}`}>
+              {tournament.name}
+            </Link>
+          </Navbar.Section>
+          <Navbar.Section grow mt="md">
+            <Button
+              m="1rem"
+              component={Link}
+              color="pink"
+              href={`/tournaments/${tournament.id}/edit`}
+            >
+              Ändra turnering
+            </Button>
+
+            <Button
+              m="1rem"
+              color={showAcceptedTeams ? 'green' : 'blue'}
+              onClick={() => setShowAcceptedTeams(!showAcceptedTeams)}
+            >
+              Visa accepterade lag
+            </Button>
+            <Button
+              m="1rem"
+              color={showWaitingTeams ? 'green' : 'blue'}
+              onClick={() => setShowWaitingTeams(!showWaitingTeams)}
+            >
+              Visa väntande lag
+            </Button>
+            <Button
+              m="1rem"
+              color={showDeclinedTeams ? 'green' : 'blue'}
+              onClick={() => setShowDeclinedTeams(!showDeclinedTeams)}
+            >
+              Visa nekade lag
+            </Button>
+            <Button
+              m="1rem"
+              color={showInvites ? 'green' : 'blue'}
+              onClick={() => setShowInvites(!showInvites)}
+            >
+              Visa inbjudningar
+            </Button>
+            <Button
+              m="1rem"
+              color={showGames ? 'green' : 'blue'}
+              onClick={() => setShowGames(!showGames)}
+            >
+              Visa matcher
+            </Button>
+            <Button
+              m="1rem"
+              color={showScheduler ? 'green' : 'blue'}
+              onClick={() => setShowScheduler(!showScheduler)}
+            >
+              Visa spelschemagenerere
+            </Button>
+          </Navbar.Section>
         </Navbar>
-      }
-      header={
-        <Header height={60} p="xs">
-          {/* Header content */}
-        </Header>
       }
       styles={(theme) => ({
         main: {
@@ -342,265 +396,191 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
         },
       })}
     >
+      {showAcceptedTeams && (
+        <section>
+          <Box my="sm" className={classes.titleBox}>
+            Accepterade lag
+          </Box>
+          <TeamsList
+            teams={acceptedTeams}
+            handleTeamAccept={handleTeamAccept}
+          />
+        </section>
+      )}
 
-        {showAcceptedTeams ? (
-          <>
-            <button onClick={() => setShowAcceptedTeams(false)}>
-              Göm accpeterade Lag
-            </button>
-            <section>
-              <TeamsList
-                teams={acceptedTeams}
-                handleTeamAccept={handleTeamAccept}
-              />
-            </section>
-          </>
-        ) : (
-          <>
-            <button onClick={() => setShowAcceptedTeams(true)}>
-              Visa accepterade Lag
-            </button>
-          </>
-        )}
+      {showWaitingTeams && (
+        <section>
+          <Box my="sm" className={classes.titleBox}>
+            Väntande lag
+          </Box>
+          <TeamsList teams={waitingTeams} handleTeamAccept={handleTeamAccept} />
+        </section>
+      )}
 
-        {showWaitingTeams ? (
-            <section>
-              <TeamsList
-                teams={waitingTeams}
-                handleTeamAccept={handleTeamAccept}
-              />
-            </section>
-        )}
+      {showDeclinedTeams && (
+        <section>
+          <Box my="sm" className={classes.titleBox}>
+            Nekade lag
+          </Box>
+          <TeamsList
+            teams={declinedTeams}
+            handleTeamAccept={handleTeamAccept}
+          />
+        </section>
+      )}
 
-        {showDeclinedTeams && (
-            <section>
-              <TeamsList
-                teams={declinedTeams}
-                handleTeamAccept={handleTeamAccept}
-              />
-            </section>
-        )}
+      {/*INVITES*/}
+      {showInvites && (
+        <section>
+          <Box className={classes.titleBox} my="sm">
+            Inbjudningar -{' '}
+            {tournament.open ? 'Öppen tävling' : 'Endast inbjudan'}
+          </Box>
+          <Box className={classes.titleBox} my="sm">
+            {!tournament.open ? (
+              <InviteCreator creator={createInvite(false)} />
+            ) : invites.length ? (
+              ''
+            ) : (
+              <InviteCreator creator={createInvite(true)} />
+            )}
+          </Box>
+          {invites.length ? (
+            <Stack>
+              {invites.map((invitation) => (
+                <Box className={classes.titleBox} key={invitation.id}>
+                  {new Date(invitation.expiration_date) < new Date() ? (
+                    <p>
+                      Gick ut{' '}
+                      {format(
+                        new Date(invitation.expiration_date),
+                        'yyyy-MM-dd HH:mm'
+                      )}
+                    </p>
+                  ) : (
+                    <b>
+                      Går ut:
+                      {format(
+                        new Date(invitation.expiration_date),
+                        'yyyy-MM-dd HH:mm'
+                      )}
+                    </b>
+                  )}
+                  <Link href={`/invite/${invitation.code}`}>
+                    {invitation.code}
+                  </Link>{' '}
+                  -{' '}
+                  <b>
+                    {invitation.used
+                      ? 'Förbrukad'
+                      : invitation.unique
+                      ? 'Inte använd'
+                      : 'Öppen inbjudan'}
+                  </b>
+                  {' - '}
+                  {session && (
+                    <Button onClick={() => deleteInvite(invitation.id)}>
+                      Ta bort
+                    </Button>
+                  )}
+                </Box>
+              ))}
+            </Stack>
+          ) : (
+            <p>...</p>
+          )}
+        </section>
+      )}
 
+      {/*GAMES*/}
+      {showGames && (
+        <section>
+          <Box className={classes.titleBox}>Matcher</Box>
+          <Box className={classes.titleBox} my="sm">
+            <GameCreator teams={teams} addTeam={addTeam(tournament.id)} />
+          </Box>
+          {games.length ? (
+            <Stack>
+              {games.map((game, i) => (
+                <Box key={game.id} className={classes.titleBox}>
+                  <Link href={`/game/${game.id}`}>Match: {i + 1}</Link>
+                  <GameBoxAdmin game={game} deleteGame={deleteGame(game.id)} />
+                </Box>
+              ))}
+            </Stack>
+          ) : (
+            <p>Inga matcher</p>
+          )}
+        </section>
+      )}
 
+      {/*SCHEDULER*/}
+      {showScheduler && (
+        <section>
+          <Box className={classes.titleBox} mb="sm">
+            Schema
+          </Box>
 
-
-</AppShell>
+          {schedule ? (
+            <>
+              <Stack>
+                {schedule.map((group, i) => (
+                  <Box
+                    className={classes.titleBox}
+                    key={`${group.startDate}${i}`}
+                  >
+                    <h3>Runda {i + 1}</h3>
+                    <DatePicker
+                      selected={group.startDate}
+                      onChange={(date: Date) => updateSchedule(date, i)}
+                      showTimeSelect
+                      dateFormat="Pp"
+                    />
+                    {group.games.map((game) => (
+                      <Box
+                        className={classes.titleBox}
+                        key={`${game[0].id}+${game[1].id}`}
+                      >
+                        {game.map((team, i) => (
+                          <span key={team.id}>
+                            {team.name}
+                            {i < game.length - 1 && ' vs '}
+                          </span>
+                        ))}
+                      </Box>
+                    ))}
+                  </Box>
+                ))}
+              </Stack>
+              <Group>
+                <Button onClick={() => addSchedule()}>Spara Schema</Button>
+                <Button onClick={() => setSchedule(null)}>Rensa Schema</Button>
+              </Group>
+            </>
+          ) : (
+            <Center>
+              <Flex direction="column" gap="xs">
+                <NumberInput
+                  defaultValue={2}
+                  label="Storlek på omgångar"
+                  withAsterisk
+                  required
+                  onChange={(val) => setGroupingsSize(val || 1)}
+                />
+                <Button
+                  onClick={() =>
+                    setSchedule(
+                      generateRoundRobinSchedule([...teams], groupingsSize)
+                    )
+                  }
+                >
+                  Generera schema
+                </Button>
+              </Flex>
+            </Center>
+          )}
+        </section>
+      )}
+    </AppShell>
   )
 }
-
-//         <h1>{tournament.name}</h1>
-
-//         {showAcceptedTeams ? (
-//           <>
-//             <button onClick={() => setShowAcceptedTeams(false)}>
-//               Göm accpeterade Lag
-//             </button>
-//             <section>
-//               <TeamsList
-//                 teams={acceptedTeams}
-//                 handleTeamAccept={handleTeamAccept}
-//               />
-//             </section>
-//           </>
-//         ) : (
-//           <>
-//             <button onClick={() => setShowAcceptedTeams(true)}>
-//               Visa accepterade Lag
-//             </button>
-//           </>
-//         )}
-
-//         {showWaitingTeams ? (
-//           <>
-//             <button onClick={() => setShowWaitingTeams(false)}>
-//               Göm ansökande Lag
-//             </button>
-//             <section>
-//               <TeamsList
-//                 teams={waitingTeams}
-//                 handleTeamAccept={handleTeamAccept}
-//               />
-//             </section>
-//           </>
-//         ) : (
-//           <>
-//             <button onClick={() => setShowWaitingTeams(true)}>
-//               Visa ansökande Lag
-//             </button>
-//           </>
-//         )}
-
-//         {showDeclinedTeams ? (
-//           <>
-//             <button onClick={() => setShowDeclinedTeams(false)}>
-//               Göm nekade Lag
-//             </button>
-//             <section>
-//               <TeamsList
-//                 teams={declinedTeams}
-//                 handleTeamAccept={handleTeamAccept}
-//               />
-//             </section>
-//           </>
-//         ) : (
-//           <>
-//             <button onClick={() => setShowDeclinedTeams(true)}>
-//               Visa nekade Lag
-//             </button>
-//           </>
-//         )}
-
-//         {showInvites ? (
-//           <>
-//             <button onClick={() => setShowInvites(false)}>
-//               Göm Inbjudningar
-//             </button>
-//             <section>
-//               <div>
-//                 <Link href={`${tournament.id}/edit`}>Ändra</Link>
-//               </div>
-//               <h2>{tournament.open ? 'Öppen tävling' : 'Endast inbjudan'}</h2>
-//               {!tournament.open ? (
-//                 <InviteCreator creator={createInvite(false)} />
-//               ) : invites.length ? (
-//                 ''
-//               ) : (
-//                 <InviteCreator creator={createInvite(true)} />
-//               )}
-//               {invites.length ? (
-//                 <ul>
-//                   {invites.map((invitation) => (
-//                     <li key={invitation.id}>
-//                       {new Date(invitation.expiration_date || '') <
-//                       new Date() ? (
-//                         <p>
-//                           Gick ut{' '}
-//                           {format(
-//                             new Date(invitation.expiration_date || ''),
-//                             'yyyy-MM-dd HH:mm'
-//                           )}
-//                         </p>
-//                       ) : (
-//                         <b>
-//                           Går ut:
-//                           {format(
-//                             new Date(invitation.expiration_date || ''),
-//                             'yyyy-MM-dd HH:mm'
-//                           )}
-//                         </b>
-//                       )}
-//                       <Link href={`/invite/${invitation.code}`}>
-//                         {invitation.code}
-//                       </Link>{' '}
-//                       -{' '}
-//                       <b>
-//                         {invitation.used
-//                           ? 'Förbrukad inbjudan'
-//                           : invitation.unique
-//                           ? 'Inte använd'
-//                           : 'Öppen inbjudan'}
-//                       </b>
-//                       {' - '}
-//                       {session && (
-//                         <button onClick={() => deleteInvite(invitation.id)}>
-//                           Ta bort
-//                         </button>
-//                       )}
-//                     </li>
-//                   ))}
-//                 </ul>
-//               ) : (
-//                 <p>...</p>
-//               )}
-//             </section>
-//           </>
-//         ) : (
-//           <>
-//             <button onClick={() => setShowInvites(true)}>
-//               Visa Inbjudningar
-//             </button>
-//           </>
-//         )}
-
-//         {showGames ? (
-//           <>
-//             <button onClick={() => setShowGames(false)}>Göm Matcher</button>
-//             <div>
-//               <GameCreator teams={teams} addTeam={addTeam(tournament.id)} />
-//             </div>
-//             <section>
-//               {games.length ? (
-//                 <ul>
-//                   {games.map((game, i) => (
-//                     <li key={game.id}>
-//                       <Link href={`/game/${game.id}`}>Match: {i + 1}</Link>
-//                       <GameBoxAdmin game={game} />
-//                     </li>
-//                   ))}
-//                 </ul>
-//               ) : (
-//                 <p>Inga matcher</p>
-//               )}
-//               <button onClick={() => handleCreateGame()}>Skapa Match</button>
-//             </section>
-//           </>
-//         ) : (
-//           <>
-//             <button onClick={() => setShowGames(true)}>Visa Matcher</button>
-//           </>
-//         )}
-
-//         {showScheduler ? (
-//           <section>
-//             <button onClick={() => setShowScheduler(false)}>
-//               Göm Schemaläggare
-//             </button>
-//             {schedule ? (
-//               <>
-//                 <h2>Schema</h2>
-//                 <ul>
-//                   {schedule.map((group, i) => (
-//                     <li key={`${group.startDate}${i}`}>
-//                       <h3>Runda {i + 1}</h3>
-//                       <DatePicker
-//                         selected={group.startDate}
-//                         onChange={(date: Date) => updateSchedule(date, i)}
-//                         showTimeSelect
-//                         dateFormat="Pp"
-//                       />
-//                       {group.games.map((game) => (
-//                         <div key={`${game[0].id}+${game[1].id}`}>
-//                           {game.map((team, i) => (
-//                             <span key={team.id}>
-//                               {team.name}
-//                               {i < game.length - 1 && ' vs '}
-//                             </span>
-//                           ))}
-//                         </div>
-//                       ))}
-//                     </li>
-//                   ))}
-//                 </ul>
-//                 <button onClick={() => addSchedule()}>Skapa Schema</button>
-//               </>
-//             ) : (
-//               <button
-//                 onClick={() =>
-//                   setSchedule(generateRoundRobinSchedule(teams, 2))
-//                 }
-//               >
-//                 Generera schema
-//               </button>
-//             )}
-//           </section>
-//         ) : (
-//           <>
-//             <button onClick={() => setShowScheduler(true)}>
-//               Visa Schemaläggare
-//             </button>
-//           </>
-//         )}
-//       </>
-//     </section>
-//   )
-// }

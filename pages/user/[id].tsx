@@ -94,8 +94,14 @@ export default function Tournaments({
   games,
 }: Props) {
   const { classes } = useStyles()
-
-  console.log(games)
+  const teamMap = tournaments.reduce((acc, tournament) => {
+    return {
+      ...acc,
+      [tournament.id]: teams.find(
+        (team) => team.tournament.id === tournament.id
+      ),
+    }
+  }, {})
   if (!user) {
     return <p>Inget här</p>
   }
@@ -123,9 +129,8 @@ export default function Tournaments({
                 </Box>
                 <b>
                   Lag{' '}
-                  <Link href={`blank`}>
-                    {teams.find((team) => team.tournament.id === tournament.id)
-                      ?.name || 'lag'}
+                  <Link href={`/team/${teamMap[tournament.id].team_code}`}>
+                    {teamMap[tournament.id].name || 'lag'}
                   </Link>
                 </b>
                 <h4>Matcher</h4>
