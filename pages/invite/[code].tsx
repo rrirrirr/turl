@@ -26,11 +26,8 @@ import { FormEvent, useState } from 'react'
 // }
 
 // export async function getStaticPaths() {
-//   console.log('fettth')
 
 //   const res = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/invites`)
-//   console.log('nnnn')
-//   console.log(res)
 //   const invites: Invite[] = res.data
 
 //   const paths = invites.map((invite) => ({
@@ -101,8 +98,6 @@ interface PendingPlayer {
 
 export default function Invite({ invite, tournament }: Props) {
   const router = useRouter()
-  console.log(invite)
-  console.log(tournament)
   const [players, setPlayers] = useState<Array<PendingPlayer | string>>(
     Array(tournament?.min_num_players_in_team || 0)
       .fill('')
@@ -153,7 +148,6 @@ export default function Invite({ invite, tournament }: Props) {
           },
         }
       )
-      console.log(res.data)
       if (res.status === 201) {
         const code = res.data.team_code
         router.push(`/team/${code}`)

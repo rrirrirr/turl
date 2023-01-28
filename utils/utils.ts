@@ -192,7 +192,6 @@ function gameGroupings(games: [Team, Team][], groupingSize: number) {
     }
     if (currentGroup.length === groupingSize) {
       groups = [...groups, currentGroup]
-      // console.log(groups)
       currentGroup = []
     }
     const indexOfNext = games.findIndex((game) => {
@@ -201,7 +200,6 @@ function gameGroupings(games: [Team, Team][], groupingSize: number) {
           (addedGame) =>
             !addedGame.find((team_) => {
               return team_.name === team.name
-              // return game.every((t) => t.name !== team.name)
             })
         )
       })
@@ -211,7 +209,6 @@ function gameGroupings(games: [Team, Team][], groupingSize: number) {
       games.splice(indexOfNext, 1)
     } else {
       groups = [...groups, currentGroup]
-      // console.log(groups)
       currentGroup = []
     }
   }

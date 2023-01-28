@@ -144,7 +144,6 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
   const createInvite =
     (unique: boolean) =>
     async (expiration: Date | null = null) => {
-      console.log('invite')
       setInvites([
         ...invites,
         {
@@ -262,7 +261,6 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
             },
           }
         )
-        // console.log({ ...res.data, teams })
         const addedTeams = teamIds.map((id) =>
           teams.find((team) => team.id === id)
         )
@@ -306,7 +304,6 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
       })
       Promise.all(reqs).then((res) => {
         const gamesToAdd = res.map((r) => r.data)
-        console.log(gamesToAdd)
         setGames([...flatGames, ...games])
         setShowGames(true)
         setShowScheduler(false)

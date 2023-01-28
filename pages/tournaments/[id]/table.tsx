@@ -61,7 +61,6 @@ export default function Team({ teams, tournament, games }: Props) {
     pointsForDraw: 1,
   })
   const sortedTable = sortRoundRobinTable(table)
-  console.log(sortedTable)
 
   const rows = sortedTable.map((row) => (
     <tr key={row.name}>
