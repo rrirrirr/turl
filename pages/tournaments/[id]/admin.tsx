@@ -382,7 +382,7 @@ export default function Admin({ tournament, invites_, teams_, games_ }: Props) {
               color={showScheduler ? 'green' : 'blue'}
               onClick={() => setShowScheduler(!showScheduler)}
             >
-              Visa spelschemagenerere
+              Visa spelschemagenererare
             </Button>
           </Navbar.Section>
         </Navbar>
