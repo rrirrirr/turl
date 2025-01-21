@@ -9,21 +9,6 @@ import { authOptions } from './api/auth/[...nextauth]'
 import Link from 'next/link'
 import { Button } from '@mantine/core'
 
-// type Props = { props: { session: Session | null } }
-
-// export async function getServerSideProps(
-//   context: GetServerSidePropsContext
-// ): Promise<Props> {
-//   const session: Session | null = await unstable_getServerSession(
-//     context.req,
-//     context.res,
-//     authOptions
-//   )
-//   return { props: { session: session } }
-// }
-
-// export default function Home({ session }: { session: Session }) {
-
 export default function Home() {
   const { data: session, status } = useSession()
 

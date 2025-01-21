@@ -8,22 +8,11 @@ export async function getStaticProps() {
   return { props: { tournaments: res.data } }
 }
 
-// const fetcher = (...args) => axios(...args).then((res) => res.data)
-
 interface Props {
   tournaments: Tournament[]
 }
 
 export default function Tournaments(props: Props) {
-  // const { data, error, isLoading } = useSWR(
-  //   `${process.env.NEXT_PUBLIC_DB_HOST}/tournaments`,
-  //   fetcher
-  // )
-
-  // if (error) return <div>Failed to load</div>
-  // if (!data) return <div>Loading...</div>
-  //   //
-
   const [tournaments, setTournaments] = useState(props.tournaments)
 
   async function handleDelete(id: string) {

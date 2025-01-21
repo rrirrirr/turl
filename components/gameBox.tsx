@@ -12,16 +12,12 @@ export default function GameBox({ game }: { game: Game }) {
     typeof game.result === 'string'
       ? JSON.parse(game.result)
       : game.result
-      ? game.result
-      : game.teams?.length
-      ? createScoreObject(game?.teams)
-      : []
+        ? game.result
+        : game.teams?.length
+          ? createScoreObject(game?.teams)
+          : []
   )
 
-  // const result_ = (game?.result as Result) || null
-  // const [result, setResult] = useState<Result>(
-  // result_ || createScoreObject(game.teams as Team[])
-  // )
   const [update, setUpdate] = useState<boolean>(false)
 
   return (

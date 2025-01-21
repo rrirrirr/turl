@@ -20,23 +20,6 @@ import {
 import { ButtonGroup } from '@mantine/core/lib/Button/ButtonGroup/ButtonGroup'
 import { useStyles } from '../../styles/styles'
 
-// export async function getStaticPaths() {
-//   const res = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/invitations`)
-//   const invites = res.data
-
-//   const paths = invites.map((invite) => ({
-//     params: { code: invite.code },
-//   }))
-//   return { paths, fallback: 'blocking' }
-// }
-
-// export async function getStaticProps({ params }) {
-//   const res = await axios.get(
-//     `${process.env.NEXT_PUBLIC_DB_HOST}/invitations/${params.code}`
-//   )
-//   return { props: { data: res.data },       revalidate: 10 }
-// }
-
 type TeamUser = User & { inTeam: boolean }
 
 //Temporary
@@ -177,8 +160,8 @@ export default function Team({
             {team.accepted === 'accepted'
               ? 'Antagen'
               : team.accepted === 'declined'
-              ? 'Nekad'
-              : 'Väntar på svar om antagning'}
+                ? 'Nekad'
+                : 'Väntar på svar om antagning'}
           </h2>
           <Link href={`/tournaments/${tournament.id}`}>
             <h3>turnering: {tournament.name}</h3>

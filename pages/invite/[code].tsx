@@ -8,56 +8,6 @@ import {
 import { useRouter } from 'next/router'
 import { FormEvent, useState } from 'react'
 
-// export async function getStaticPaths() {
-//   const res = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/invitations`)
-//   const invites = res.data
-
-//   const paths = invites.map((invite) => ({
-//     params: { code: invite.code },
-//   }))
-//   return { paths, fallback: false }
-// }
-
-// export async function getStaticProps({ params }) {
-//   const res = await axios.get(
-//     `${process.env.NEXT_PUBLIC_DB_HOST}/invitations/${params.code}`
-//   )
-//   return { props: { data: res.data } }
-// }
-
-// export async function getStaticPaths() {
-
-//   const res = await axios.get(`${process.env.NEXT_PUBLIC_DB_HOST}/invites`)
-//   const invites: Invite[] = res.data
-
-//   const paths = invites.map((invite) => ({
-//     params: { code: invite.code },
-//   }))
-//   return { paths, fallback: false }
-// }
-
-// export async function getStaticProps(
-//   context: GetStaticPropsContext<{
-//     code: string
-//   }>
-// ) {
-//   const code = context?.params?.code
-//   try {
-//     const inviteRes = await axios.get(
-//       `${process.env.NEXT_PUBLIC_DB_HOST}/invites?code=${code}`
-//     )
-//     const invite = inviteRes.data[0]
-//     const tournament = invite.tournament
-//     return {
-//       props: { invite: invite, tournament: tournament },      revalidate: 10,
-//     }
-//   } catch (error) {
-//     console.log(error)
-//   }
-//   return { props: { invite: null, tournament: null },       revalidate: 10, }
-// }
-
-//TEMPORARY
 export async function getServerSideProps(context: any) {
   const code = context?.params?.code
   try {
